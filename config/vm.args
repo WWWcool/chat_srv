@@ -1,0 +1,6 @@
+-sname chat_srv
+
+-setcookie chat_srv_cookie
+
++K true
++A30

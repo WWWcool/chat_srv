@@ -1,0 +1,18 @@
+{application, chat_srv,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, { chat_srv_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cowboy,
+    genlib,
+    jiffy
+   ]},
+  {env,[]},
+  {modules, [chat_srv_app, chat_srv_sup, web_handler]},
+  {maintainers, []},
+  {licenses, ["Apache 2.0"]},
+  {links, []}
+ ]}.
