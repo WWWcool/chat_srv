@@ -30,8 +30,14 @@ start_link() ->
     {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 
 init([]) ->
+    ExtPort = 8080,
+    ExtTCPConnectionMax = 4,
+    logger:info("in srv sup port - ~p and conn max - ~p~n", [ExtPort, ExtTCPConnectionMax]),
     Flags = #{strategy => one_for_all},
-    {ok, {Flags, [get_cowboy_child_spec({0, 0, 0, 0}, 8080)]}}.
+    TCPChild = {tcp_sup, {tcp_sup, start_link, [{ExtPort + 1, ExtTCPConnectionMax}]},
+                permanent, 2000, supervisor, [tcp_sup, tcp_handler, tcp_srv]},
+    %CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
+    {ok, {Flags, [TCPChild]}}.
 
 -spec get_cowboy_child_spec(ip(), integer()) ->
     supervisor:child_spec().
