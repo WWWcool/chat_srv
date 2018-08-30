@@ -26,23 +26,23 @@ start_link(Args) ->
 -spec init(list()) ->
     {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 
+init({Port, Max}) ->
+    logger:alert("in tcp sup port - ~p and conn max - ~p", [Port, Max]),
+    %% Set the socket into {active_once} mode.
+    {ok, ListenSocket} = gen_tcp:listen(Port, [{active, once}]),
+    ServerChild = {tcp_srv, {tcp_srv, start_link, [ListenSocket]},
+                permanent, 2000, worker, [tcp_srv]},
+    {ok, {{one_for_all, 1, 1}, [ServerChild]}}.
+
 %init({Port, Max}) ->
 %    logger:alert("in tcp sup port - ~p and conn max - ~p", [Port, Max]),
 %    %% Set the socket into {active_once} mode.
 %    {ok, ListenSocket} = gen_tcp:listen(Port, [{active,once}]),
-%    ServerChild = {tcp_srv, {tcp_srv, start_link, [ListenSocket]},
-%                permanent, 2000, worker, [tcp_srv]},
-%    {ok, {{one_for_all, 1, 1}, [ServerChild]}}.
-
-init({Port, Max}) ->
-    logger:alert("in tcp sup port - ~p and conn max - ~p", [Port, Max]),
-    %% Set the socket into {active_once} mode.
-    {ok, ListenSocket} = gen_tcp:listen(Port, [{active,once}]),
-    spawn_link(?MODULE, empty_listeners, [Max]),
-    {ok,    {{simple_one_for_one, 1, 1},
-           [{tcp_srv, {tcp_srv, start_link, [ListenSocket]}, % pass the socket!
-            temporary, 1000, worker, [tcp_srv]}
-    ]}}.
+%    %spawn_link(?MODULE, empty_listeners, [Max]),
+%    {ok,    {{simple_one_for_one, 1, 1},
+%          [{tcp_srv, {tcp_srv, start_link, [ListenSocket]}, % pass the socket!
+%            temporary, 1000, worker, [tcp_srv]}
+%    ]}}.
 
 start_socket() ->
     logger:alert("start tcp socket"),
@@ -53,7 +53,7 @@ start_socket() ->
 %% a process would keep the count active at all times to insure nothing
 %% bad happens over time when processes get killed too much.
 empty_listeners(Max) when is_integer(Max) ->
-    logger:alert("get max - ~p", [Max]),
+    %logger:alert("get max - ~p", [Max]),
     [start_socket() || _ <- lists:seq(1,Max)],
     ok.
 

@@ -37,9 +37,12 @@ terminate(_Reason, _State) -> ok.
 -spec handle_cast(stop | accept, state()) -> {noreply, state()} | {stop, normal, state()}.
 
 handle_cast(accept, State = #state{socket=ListenSocket}) ->
+    logger:alert("tcp wait accept"),
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
-    tcp_sup:start_socket(),
+    %tcp_sup:start_socket(),
+    logger:alert("connecting"),
     % send response to client
+    gen_tcp:send(ListenSocket, "Hey there first shell!"),
     {noreply, State#state{socket=AcceptSocket}};
 
 handle_cast(stop, State) -> {stop, normal, State}.
@@ -52,13 +55,15 @@ handle_call(_E, _From, State) ->
 -spec handle_info({tcp | tcp_closed | tcp_error | _, _, _}, state()) ->
     {noreply, state()} | {stop, normal, state()}.
 
-handle_info({tcp, _Socket, _Str}, State) ->
+handle_info({tcp, Socket, Str}, State) ->
     Name = <<"Name">>, % binary to iolist fun
+    logger:alert("get data - ~p~n",[Str]),
+    inet:setopts(Socket, [{active, once}]),
     % protocol case and disconnect case
     % disconnect user,
     % gen_tcp:close(State#state.socket),
     % {stop, normal, State};
-    gen_server:cast(self(), check_name),
+    %gen_server:cast(self(), check_name),
     {noreply, State#state{name=Name}};
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
