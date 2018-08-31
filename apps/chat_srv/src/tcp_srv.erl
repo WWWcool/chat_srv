@@ -6,7 +6,9 @@
 -behavior(gen_server).
 
 -record(state, {name,
-                state,
+                password,
+                room,
+                message,
                 socket}). % the current socket
 
 -type state() :: #state{}.
@@ -15,7 +17,6 @@
 -spec start_link(term()) -> 'ignore' | {'error', _} | {'ok', pid()}.
 
 start_link(Socket) ->
-    logger:alert("start_link"),
     gen_server:start_link(?MODULE, Socket, []).
 
 -spec stop() -> ok.
@@ -26,9 +27,8 @@ stop() -> gen_server:cast(?MODULE, stop).
 -spec init(term()) -> {ok, state()}.
 
 init(Socket) ->
-    logger:alert("tcp start wait to accept"),
     gen_server:cast(self(), accept),
-    {ok, #state{socket=Socket, state=connecting}}.
+    {ok, #state{socket=Socket}}.
 
 -spec terminate(normal | shutdown | {shutdown, term()} | term(), state()) -> 'ok'.
 
@@ -37,13 +37,29 @@ terminate(_Reason, _State) -> ok.
 -spec handle_cast(stop | accept, state()) -> {noreply, state()} | {stop, normal, state()}.
 
 handle_cast(accept, State = #state{socket=ListenSocket}) ->
-    logger:alert("tcp wait accept"),
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
-    %tcp_sup:start_socket(),
-    logger:alert("connecting"),
+    tcp_sup:start_socket(),
     % send response to client
-    gen_tcp:send(ListenSocket, "Hey there first shell!"),
+    gen_tcp:send(AcceptSocket, to_binary({ok, login})),
     {noreply, State#state{socket=AcceptSocket}};
+
+handle_cast(get_name, #state{socket=Socket, name = Name} = State) ->
+    Result = chat_srv:check_name(Name),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(get_old_password, #state{socket=Socket, password = Password, name = Name} = State) ->
+    Result = chat_srv:login(Name, Password),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(get_new_password, #state{socket=Socket, password = Password, name = Name} = State) ->
+    Result = chat_srv:new_user(Name, Password),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
 
 handle_cast(stop, State) -> {stop, normal, State}.
 
@@ -56,15 +72,39 @@ handle_call(_E, _From, State) ->
     {noreply, state()} | {stop, normal, state()}.
 
 handle_info({tcp, Socket, Str}, State) ->
-    Name = <<"Name">>, % binary to iolist fun
-    logger:alert("get data - ~p~n",[Str]),
-    inet:setopts(Socket, [{active, once}]),
-    % protocol case and disconnect case
-    % disconnect user,
-    % gen_tcp:close(State#state.socket),
-    % {stop, normal, State};
-    %gen_server:cast(self(), check_name),
-    {noreply, State#state{name=Name}};
+    {Cast, NewState} = case to_tuple(Str) of
+        {disconnect, _} ->
+            {disconnect, State};
+        {enter_name, Name} ->
+            {get_name, State#state{name = Name}};
+        {enter_old_password, Password} ->
+            {get_old_password, State#state{password = Password}};
+        {enter_new_password, Password} ->
+            {get_new_password, State#state{password = Password}};
+        {get_rooms, _} ->
+            {get_rooms, State};
+        {fetch_history, _} ->
+            {fetch_history, State};
+        {join_room, Room} ->
+            {join_room, State#state{room = Room}};
+        {load_history, _} ->
+            {load_history, State};
+        {quit_room, Room} ->
+            {quit_room, State#state{room = Room}};
+        {change_room, Room} ->
+            {change_room, State#state{room = Room}};
+        {send_message, Message} ->
+            {send_message, State#state{message = Message}}
+    end,
+    case Cast of
+        disconnect ->
+            gen_tcp:close(Socket),
+            {stop, normal, NewState};
+        _ ->
+            inet:setopts(Socket, [{active, once}]),
+            gen_server:cast(self(), Cast),
+            {noreply, NewState}
+    end;
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info({tcp_error, _Socket, _}, State) ->
@@ -73,5 +113,8 @@ handle_info(Error, State) ->
     io:format("unexpected: ~p~n", [Error]),
     {noreply, State}.
 
+to_binary(Tuple) ->
+    erlang:list_to_binary(erlang:tuple_to_list(Tuple)).
 
-
+to_tuple(Binary) ->
+    erlang:list_to_tuple(erlang:binary_to_list(Binary)).

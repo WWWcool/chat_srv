@@ -7,8 +7,7 @@
    [kernel,
     stdlib,
     cowboy,
-    genlib,
-    jiffy
+    genlib
    ]},
   {env,[]},
   {modules, [chat_srv_app, tcp_sup, chat_srv_sup, web_handler, tcp_srv]},
