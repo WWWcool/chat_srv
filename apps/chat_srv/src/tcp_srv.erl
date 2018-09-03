@@ -36,27 +36,69 @@ terminate(_Reason, _State) -> ok.
 
 -spec handle_cast(stop | accept, state()) -> {noreply, state()} | {stop, normal, state()}.
 
-handle_cast(accept, State = #state{socket=ListenSocket}) ->
+handle_cast(accept, State = #state{socket = ListenSocket}) ->
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
     tcp_sup:start_socket(),
-    % send response to client
+    % create monitor to chat_server
     gen_tcp:send(AcceptSocket, to_binary({ok, login})),
-    {noreply, State#state{socket=AcceptSocket}};
+    {noreply, State#state{socket = AcceptSocket}};
 
-handle_cast(get_name, #state{socket=Socket, name = Name} = State) ->
+handle_cast(get_name, #state{socket = Socket, name = Name} = State) ->
     Result = chat_srv:check_name(Name),
     Replay = to_binary(Result),
     gen_tcp:send(Socket, Replay),
     {noreply, State};
 
-handle_cast(get_old_password, #state{socket=Socket, password = Password, name = Name} = State) ->
+handle_cast(get_old_password, #state{socket = Socket, password = Password, name = Name} = State) ->
     Result = chat_srv:login(Name, Password),
     Replay = to_binary(Result),
     gen_tcp:send(Socket, Replay),
     {noreply, State};
 
-handle_cast(get_new_password, #state{socket=Socket, password = Password, name = Name} = State) ->
+handle_cast(get_new_password, #state{socket = Socket, password = Password, name = Name} = State) ->
     Result = chat_srv:new_user(Name, Password),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(get_rooms, #state{socket = Socket} = State) ->
+    Result = chat_srv:get_rooms(),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(fetch_history, #state{name = Name, socket = Socket} = State) ->
+    Result = chat_srv:fetch_history(Name),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(join_room, #state{name = Name, room = Room, socket = Socket} = State) ->
+    Result = chat_srv:join_room(Name, Room),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(quit_room, #state{name = Name, room = Room, socket = Socket} = State) ->
+    Result = chat_srv:quit_room(Name, Room),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(change_room, #state{name = Name, room = Room, socket = Socket} = State) ->
+    Result = chat_srv:change_room(Name, Room),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(load_history, #state{name = Name, socket = Socket} = State) ->
+    Result = chat_srv:load_history(Name),
+    Replay = to_binary(Result),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
+handle_cast(send_message, #state{name = Name, message = Message, socket = Socket} = State) ->
+    Result = chat_srv:send_message(Name, Message),
     Replay = to_binary(Result),
     gen_tcp:send(Socket, Replay),
     {noreply, State};
@@ -99,6 +141,7 @@ handle_info({tcp, Socket, Str}, State) ->
     case Cast of
         disconnect ->
             gen_tcp:close(Socket),
+            chat_srv:disconnect(NewState#state.name),
             {stop, normal, NewState};
         _ ->
             inet:setopts(Socket, [{active, once}]),
@@ -106,10 +149,13 @@ handle_info({tcp, Socket, Str}, State) ->
             {noreply, NewState}
     end;
 handle_info({tcp_closed, _Socket}, State) ->
+    chat_srv:disconnect(State#state.name),
     {stop, normal, State};
 handle_info({tcp_error, _Socket, _}, State) ->
+    chat_srv:disconnect(State#state.name),
     {stop, normal, State};
 handle_info(Error, State) ->
+    chat_srv:disconnect(State#state.name),
     io:format("unexpected: ~p~n", [Error]),
     {noreply, State}.
 
