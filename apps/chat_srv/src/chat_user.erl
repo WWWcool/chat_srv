@@ -52,12 +52,18 @@ join_room(RoomName, #user{rms = Rooms} = User) ->
             User#user{rms = dict:store(RoomName, 0, Rooms), current_rm = RoomName}
     end.
 
-quit_room(RoomName, #user{rms = Rooms} = User) ->
+quit_room(RoomName, #user{rms = Rooms, current_rm = Room} = User) ->
     case dict:is_key(RoomName, Rooms) of
         false ->
             User;
         true ->
-            User#user{rms = dict:erase(RoomName, Rooms)}
+            NewUser = User#user{rms = dict:erase(RoomName, Rooms)},
+            case Room =:= RoomName of
+                true ->
+                    NewUser#user{current_rm = undefined};
+                false ->
+                    NewUser
+            end
     end.
 
 change_room(RoomName, #user{rms = Rooms} = User) ->

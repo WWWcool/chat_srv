@@ -82,7 +82,12 @@ handle_cast({resend_message, Message, Pids}, State) ->
     % some behavior callback mb here
     lists:foreach(
         fun(Pid) ->
-            Pid ! {resend_message, Message}
+            case is_process_alive(Pid) of
+                true ->
+                    Pid ! {resend_message, Message};
+                false ->
+                    logger:alert("Process not live - ~p", [Pid])
+            end
         end, Pids),
     {noreply, State};
 

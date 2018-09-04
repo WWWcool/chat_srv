@@ -18,7 +18,9 @@ init_rooms() ->
     Rooms = dict:new(),
     LobbyName = "Lobby",
     Lobby = chat_room:add(LobbyName),
-    dict:store(LobbyName, Lobby, Rooms).
+    RoomName = "Room1",
+    Room = chat_room:add(RoomName),
+    dict:store(RoomName, Room, dict:store(LobbyName, Lobby, Rooms)).
 
 disconnect(Name, Users) ->
     case dict:find(Name, Users) of
@@ -66,6 +68,7 @@ get_rooms(Rooms) ->
     {ok, dict:fetch_keys(Rooms)}.
 
 join_room(Name, RoomName, Users) ->
+    % check room name
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:join_room(RoomName, User),
@@ -75,6 +78,7 @@ join_room(Name, RoomName, Users) ->
     end.
 
 quit_room(Name, RoomName, Users) ->
+    % check room name
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:quit_room(RoomName, User),
@@ -84,6 +88,7 @@ quit_room(Name, RoomName, Users) ->
     end.
 
 change_room(Name, RoomName, Users) ->
+    % check room name
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:change_room(RoomName, User),
