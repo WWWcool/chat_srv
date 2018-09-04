@@ -31,16 +31,16 @@ start_link() ->
 
 init([]) ->
     ExtPort = 8080,
-    ExtTCPConnectionMax = 4,
-    logger:info("in srv sup port - ~p and conn max - ~p~n", [ExtPort, ExtTCPConnectionMax]),
+    ExtTCPConnectionMax = 1,
+    logger:alert("in srv sup port - ~p and conn max - ~p~n", [ExtPort, ExtTCPConnectionMax]),
     Flags = #{strategy => one_for_all},
     TCPChild = {tcp_sup, {tcp_sup, start_link, [{ExtPort + 1, ExtTCPConnectionMax}]},
                 permanent, 2000, supervisor, [tcp_sup, tcp_handler, tcp_srv]},
     ChatChild = {chat_srv, {chat_srv, start_link, []},
                 permanent, 2000, worker, [chat_srv, chat_server, chat_user, chat_room]},
-    CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
+    %CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
 
-    {ok, {Flags, [ChatChild, CowboyChild, TCPChild]}}.
+    {ok, {Flags, [ChatChild, TCPChild]}}.
 
 -spec get_cowboy_child_spec(ip(), integer()) ->
     supervisor:child_spec().

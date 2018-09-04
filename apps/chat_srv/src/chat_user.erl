@@ -12,7 +12,6 @@
 -export ([in_room/2]).
 -export ([get_pid/1]).
 
--record (state, {online, offline}).
 -record (user, {name,
                 pw,
                 rms,
@@ -21,7 +20,7 @@
                 pid :: pid()}).
 
 -type user() :: #user{}.
--type state() :: #state{}.
+-type state() :: online | offline.
 
 -export_type([user/0]).
 
@@ -50,7 +49,7 @@ join_room(RoomName, #user{rms = Rooms} = User) ->
         true ->
             User#user{current_rm = RoomName};
         false ->
-            User#user{rms = dict:append(RoomName, 0, Rooms), current_rm = RoomName}
+            User#user{rms = dict:store(RoomName, 0, Rooms), current_rm = RoomName}
     end.
 
 quit_room(RoomName, #user{rms = Rooms} = User) ->

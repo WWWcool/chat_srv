@@ -55,7 +55,7 @@ send_message(Name, Message) ->
 -spec start_link() -> 'ignore' | {'error', _} | {'ok', pid()}.
 
 start_link() ->
-    gen_server:start_link(?MODULE, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec stop() -> ok.
 
@@ -91,46 +91,46 @@ handle_cast(stop, State) -> {stop, normal, State}.
 -spec handle_call(_, {_, _}, state()) -> {noreply, state()}.
 
 handle_call({disconnect, Name}, {_From, _}, #state{users = Users} = State) ->
-    {Replay, NewUsers} = chat_server:disconnect(Name, Users),
+    {Reply, NewUsers} = chat_server:disconnect(Name, Users),
     % demonitor here
-    {replay, Replay, State#state{users = NewUsers}};
+    {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({check_name, Name}, _From, #state{users = Users} = State) ->
-    Replay = chat_server:check_name(Name, Users),
-    {replay, Replay, State};
+    Reply = chat_server:check_name(Name, Users),
+    {reply, Reply, State};
 
-handle_call({new_user, Name, Password}, {_From, _}, #state{users = Users} = State) ->
-    {Replay, NewUsers} = chat_server:new_user(Name, Password, Users),
+handle_call({new_user, Name, Password}, {From, _}, #state{users = Users} = State) ->
+    {Reply, NewUsers} = chat_server:new_user(Name, Password, From, Users),
     % monitor here
-    {replay, Replay, State#state{users = NewUsers}};
+    {reply, Reply, State#state{users = NewUsers}};
 
-handle_call({login, Name, Password}, {_From, _}, #state{users = Users} = State) ->
-    {Replay, NewUsers} = chat_server:login(Name, Password, Users),
+handle_call({login, Name, Password}, {From, _}, #state{users = Users} = State) ->
+    {Reply, NewUsers} = chat_server:login(Name, Password, From, Users),
     % monitor here
-    {replay, Replay, State#state{users = NewUsers}};
+    {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({get_rooms}, _From, #state{rooms = Rooms} = State) ->
-    Replay = chat_server:get_rooms(Rooms),
-    {replay, Replay, State};
+    Reply = chat_server:get_rooms(Rooms),
+    {reply, Reply, State};
 
 handle_call({join_room, Name, RoomName}, _From, #state{users = Users} = State) ->
-    {Replay, NewUsers} = chat_server:join_room(Name, RoomName, Users),
-    {replay, Replay, State#state{users = NewUsers}};
+    {Reply, NewUsers} = chat_server:join_room(Name, RoomName, Users),
+    {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({quit_room, Name, RoomName}, _From, #state{users = Users} = State) ->
-    {Replay, NewUsers} = chat_server:quit_room(Name, RoomName, Users),
-    {replay, Replay, State#state{users = NewUsers}};
+    {Reply, NewUsers} = chat_server:quit_room(Name, RoomName, Users),
+    {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({change_room, Name, RoomName}, _From, #state{users = Users} = State) ->
-    {Replay, NewUsers} = chat_server:change_room(Name, RoomName, Users),
-    {replay, Replay, State#state{users = NewUsers}};
+    {Reply, NewUsers} = chat_server:change_room(Name, RoomName, Users),
+    {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({load_history, Name}, _From, #state{users = Users, rooms = Rooms} = State) ->
-    Replay = chat_server:load_history(Name, Users, Rooms),
-    {replay, Replay, State};
+    Reply = chat_server:load_history(Name, Users, Rooms),
+    {reply, Reply, State};
 
 handle_call({send_message, Name, Message}, _From, #state{users = Users, rooms = Rooms} = State) ->
-    {Replay, Pids, NewUsers, NewRooms} = chat_server:send_message(Name, Message, Users, Rooms),
+    {Reply, Pids, NewUsers, NewRooms} = chat_server:send_message(Name, Message, Users, Rooms),
     gen_server:cast(self(), {resend_message, Message, Pids}),
-    {replay, Replay, State#state{users = NewUsers, rooms = NewRooms}}.
+    {reply, Reply, State#state{users = NewUsers, rooms = NewRooms}}.
 

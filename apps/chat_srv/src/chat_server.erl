@@ -14,13 +14,17 @@
 -export ([send_message/4]).
 
 init_users() -> dict:new().
-init_rooms() -> dict:new().
+init_rooms() ->
+    Rooms = dict:new(),
+    LobbyName = "Lobby",
+    Lobby = chat_room:add(LobbyName),
+    dict:store(LobbyName, Lobby, Rooms).
 
 disconnect(Name, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:logout(User),
-            {{ok, disconnected}, dict:append(Name, NewUser, Users)};
+            {{ok, disconnected}, dict:store(Name, NewUser, Users)};
         error ->
             {{ok, user_not_found}, Users}
     end.
@@ -36,23 +40,23 @@ check_name(Name, Users) ->
 check_password(Name, Password, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
-            Replay = chat_user:check_password(Password, User),
-            {Replay, User};
+            Reply = chat_user:check_password(Password, User),
+            {Reply, User};
         error ->
             {ok, user_not_found}
     end.
 
-new_user(Name, Password, Users, TCPPid) ->
+new_user(Name, Password, TCPPid, Users) ->
     User = chat_user:new(Name, Password, TCPPid),
-    {{ok, added_and_logged}, dict:append(Name, User, Users)}.
+    {{ok, added_and_logged}, dict:store(Name, User, Users)}.
 
-login(Name, Password, Users, TCPPid) ->
+login(Name, Password, TCPPid, Users) ->
     case check_password(Name, Password, Users) of
         {ok, user_not_found} ->
             {{ok, user_not_found}, Users};
         {{ok, good_password}, User} ->
             NewUser = chat_user:login(User, TCPPid),
-            NewUsers = dict:append(Name, NewUser, Users),
+            NewUsers = dict:store(Name, NewUser, Users),
             {{ok, logged}, NewUsers};
         {{ok, bad_password}, _} ->
             {{ok, bad_password}, Users}
@@ -65,7 +69,7 @@ join_room(Name, RoomName, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:join_room(RoomName, User),
-            {{ok, joined}, dict:append(Name, NewUser, Users)};
+            {{ok, joined}, dict:store(Name, NewUser, Users)};
         error ->
             {{ok, user_not_found}, Users}
     end.
@@ -74,7 +78,7 @@ quit_room(Name, RoomName, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:quit_room(RoomName, User),
-            {{ok, quited}, dict:append(Name, NewUser, Users)};
+            {{ok, quited}, dict:store(Name, NewUser, Users)};
         error ->
             {{ok, user_not_found}, Users}
     end.
@@ -83,7 +87,7 @@ change_room(Name, RoomName, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:change_room(RoomName, User),
-            {{ok, changed}, dict:append(Name, NewUser, Users)};
+            {{ok, changed}, dict:store(Name, NewUser, Users)};
         error ->
             {{ok, user_not_found}, Users}
     end.
@@ -115,7 +119,7 @@ send_message_to_room(RoomName, Message, Users, Rooms) ->
     case dict:find(RoomName, Rooms) of
         {ok, Room} ->
             NewRoom = chat_room:add_message(Message, Room),
-            NewRooms = dict:append(RoomName, NewRoom, Rooms),
+            NewRooms = dict:store(RoomName, NewRoom, Rooms),
             UsersInRoom = dict:filter(
                 fun(_, SomeUser) ->
                     chat_user:in_room(RoomName, SomeUser)
