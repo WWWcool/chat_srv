@@ -36,8 +36,11 @@ init([]) ->
     Flags = #{strategy => one_for_all},
     TCPChild = {tcp_sup, {tcp_sup, start_link, [{ExtPort + 1, ExtTCPConnectionMax}]},
                 permanent, 2000, supervisor, [tcp_sup, tcp_handler, tcp_srv]},
-    %CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
-    {ok, {Flags, [TCPChild]}}.
+    ChatChild = {chat_srv, {chat_srv, start_link, []},
+                permanent, 2000, worker, [chat_srv, chat_server, chat_user, chat_room]},
+    CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
+
+    {ok, {Flags, [ChatChild, CowboyChild, TCPChild]}}.
 
 -spec get_cowboy_child_spec(ip(), integer()) ->
     supervisor:child_spec().

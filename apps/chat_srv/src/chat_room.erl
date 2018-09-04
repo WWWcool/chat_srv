@@ -1,14 +1,12 @@
 -module (chat_room).
 
 -export ([add/1]).
--export ([fetch/3]).
+-export ([get_history/1]).
+-export ([add_message/2]).
 
 -record (rm, {name, msg_buffer = [], msg_index = 0}).
 
-fetch(Index, UserRooms, Rooms) ->
-    ok.
 add(Name) -> #rm{name = Name}.
-send(_Msg, _State) -> ok.
-get_buffer(_Room) -> ok.
-get_new_count(_Room) -> ok.
-
+get_history(Room) -> Room#rm.msg_buffer.
+add_message(Message, #rm{msg_buffer = Buf} = Room) ->
+    Room#rm{msg_buffer = [Message | Buf]}.

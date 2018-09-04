@@ -10,7 +10,7 @@
     genlib
    ]},
   {env,[]},
-  {modules, [chat_srv_app, tcp_sup, chat_srv_sup, web_handler, tcp_srv, chat_server, chat_room, chat_user]},
+  {modules, [chat_srv_app, tcp_sup, chat_srv_sup, web_handler, chat_srv, tcp_srv, chat_server, chat_room, chat_user]},
   {maintainers, []},
   {licenses, ["Apache 2.0"]},
   {links, []}

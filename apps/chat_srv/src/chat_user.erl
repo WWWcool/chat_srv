@@ -4,23 +4,21 @@
 -export ([new/3]).
 -export ([login/2]).
 -export ([logout/1]).
+-export ([get_rooms/1]).
 -export ([join_room/2]).
 -export ([quit_room/2]).
 -export ([change_room/2]).
--export ([send_message/3]).
--export ([receive_message/2]).
--export ([load_history/2]).
--export ([get_index/1]).
--export ([get_rooms/1]).
+-export ([current_room/1]).
+-export ([in_room/2]).
+-export ([get_pid/1]).
 
 -record (state, {online, offline}).
 -record (user, {name,
                 pw,
-                rms = [],
+                rms,
                 current_rm,
-                msg_index = 0,
                 state = offline :: state(),
-                tcp_pid :: pid()}).
+                pid :: pid()}).
 
 -type user() :: #user{}.
 -type state() :: #state{}.
@@ -31,47 +29,52 @@ check_password(Password, User) ->
     case User#user.pw =:= Password of
         true ->
             {ok, good_password};
-        _ ->
+        false ->
             {ok, bad_password}
     end.
 
 new(Name, Password, Pid) ->
-    #user{name = Name, pw = Password, state = online, tcp_pid = Pid}.
+    #user{name = Name, pw = Password, state = online, pid = Pid, rms = dict:new()}.
 
 login(User, Pid) ->
-    User#user{state = online, tcp_pid = Pid}.
+    User#user{state = online, pid = Pid}.
 
 logout(User) ->
     User#user{state = offline}.
 
-get_index(User) ->
-    User#user.msg_index.
-
-get_rooms(User) ->
-    User#user.rms.
+get_rooms(#user{rms = Rooms}) ->
+    dict:fetch_keys(Rooms).
 
 join_room(RoomName, #user{rms = Rooms} = User) ->
-    case lists:member(RoomName, Rooms) of
-        true -> User;
-        _ -> User#user{rms = [RoomName | rms]}
+    case dict:is_key(RoomName, Rooms) of
+        true ->
+            User#user{current_rm = RoomName};
+        false ->
+            User#user{rms = dict:append(RoomName, 0, Rooms), current_rm = RoomName}
     end.
 
 quit_room(RoomName, #user{rms = Rooms} = User) ->
-    case lists:member(RoomName, Rooms) of
-        false -> User;
-        _ -> User#user{rms = lists:delete(RoomName, Rooms)}
+    case dict:is_key(RoomName, Rooms) of
+        false ->
+            User;
+        true ->
+            User#user{rms = dict:erase(RoomName, Rooms)}
     end.
 
 change_room(RoomName, #user{rms = Rooms} = User) ->
-    case lists:member(RoomName, Rooms) of
-        false -> {{ok, room_not_found}, User};
-        _ -> User#user{rms = lists:delete(RoomName, Rooms)}
+    case dict:is_key(RoomName, Rooms) of
+        false ->
+            join_room(RoomName, User);
+        true ->
+            User#user{current_rm = RoomName}
     end.
 
-send_message(_User, _Msg, _State) -> ok.
-receive_message(_User, _Msg) -> ok.
+current_room(User) ->
+    User#user.current_rm.
 
-load_history(_User, _State) -> ok.
+in_room(RoomName, #user{rms = Rooms}) ->
+    dict:is_key(RoomName, Rooms).
 
-
+get_pid(User) ->
+    User#user.pid.
 

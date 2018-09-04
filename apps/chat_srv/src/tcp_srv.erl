@@ -67,12 +67,6 @@ handle_cast(get_rooms, #state{socket = Socket} = State) ->
     gen_tcp:send(Socket, Replay),
     {noreply, State};
 
-handle_cast(fetch_history, #state{name = Name, socket = Socket} = State) ->
-    Result = chat_srv:fetch_history(Name),
-    Replay = to_binary(Result),
-    gen_tcp:send(Socket, Replay),
-    {noreply, State};
-
 handle_cast(join_room, #state{name = Name, room = Room, socket = Socket} = State) ->
     Result = chat_srv:join_room(Name, Room),
     Replay = to_binary(Result),
@@ -103,6 +97,11 @@ handle_cast(send_message, #state{name = Name, message = Message, socket = Socket
     gen_tcp:send(Socket, Replay),
     {noreply, State};
 
+handle_cast({resend_message, Message}, #state{socket = Socket} = State) ->
+    Replay = to_binary({new_message, Message}),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
+
 handle_cast(stop, State) -> {stop, normal, State}.
 
 -spec handle_call(_, {_, _}, state()) -> {noreply, state()}.
@@ -125,8 +124,6 @@ handle_info({tcp, Socket, Str}, State) ->
             {get_new_password, State#state{password = Password}};
         {get_rooms, _} ->
             {get_rooms, State};
-        {fetch_history, _} ->
-            {fetch_history, State};
         {join_room, Room} ->
             {join_room, State#state{room = Room}};
         {load_history, _} ->
@@ -148,6 +145,10 @@ handle_info({tcp, Socket, Str}, State) ->
             gen_server:cast(self(), Cast),
             {noreply, NewState}
     end;
+handle_info({resend_message, Message}, #state{socket = Socket} = State) ->
+    Replay = to_binary({new_message, Message}),
+    gen_tcp:send(Socket, Replay),
+    {noreply, State};
 handle_info({tcp_closed, _Socket}, State) ->
     chat_srv:disconnect(State#state.name),
     {stop, normal, State};
@@ -159,8 +160,8 @@ handle_info(Error, State) ->
     io:format("unexpected: ~p~n", [Error]),
     {noreply, State}.
 
-to_binary(Tuple) ->
-    erlang:list_to_binary(erlang:tuple_to_list(Tuple)).
+to_binary(Term) ->
+    erlang:term_to_binary(Term).
 
 to_tuple(Binary) ->
-    erlang:list_to_tuple(erlang:binary_to_list(Binary)).
+    erlang:binary_to_Term(Binary).

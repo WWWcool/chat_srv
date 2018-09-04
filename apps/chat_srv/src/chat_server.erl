@@ -7,7 +7,6 @@
 -export ([login/4]).
 -export ([new_user/4]).
 -export ([get_rooms/1]).
--export ([fetch_history/3]).
 -export ([join_room/3]).
 -export ([quit_room/3]).
 -export ([change_room/3]).
@@ -23,13 +22,15 @@ disconnect(Name, Users) ->
             NewUser = chat_user:logout(User),
             {{ok, disconnected}, dict:append(Name, NewUser, Users)};
         error ->
-            {{ok, not_found}, Users}
+            {{ok, user_not_found}, Users}
     end.
 
 check_name(Name, Users) ->
     case dict:find(Name, Users) of
-        {ok, _} -> {ok, found};
-        error -> {ok, not_found}
+        {ok, _} ->
+            {ok, found};
+        error ->
+            {ok, user_not_found}
     end.
 
 check_password(Name, Password, Users) ->
@@ -37,7 +38,8 @@ check_password(Name, Password, Users) ->
         {ok, User} ->
             Replay = chat_user:check_password(Password, User),
             {Replay, User};
-        error -> {ok, not_found}
+        error ->
+            {ok, user_not_found}
     end.
 
 new_user(Name, Password, Users, TCPPid) ->
@@ -46,8 +48,8 @@ new_user(Name, Password, Users, TCPPid) ->
 
 login(Name, Password, Users, TCPPid) ->
     case check_password(Name, Password, Users) of
-        {ok, not_found} ->
-            {{ok, not_found}, Users};
+        {ok, user_not_found} ->
+            {{ok, user_not_found}, Users};
         {{ok, good_password}, User} ->
             NewUser = chat_user:login(User, TCPPid),
             NewUsers = dict:append(Name, NewUser, Users),
@@ -59,48 +61,31 @@ login(Name, Password, Users, TCPPid) ->
 get_rooms(Rooms) ->
     {ok, dict:fetch_keys(Rooms)}.
 
-fetch_history(Name, Users, Rooms) ->
-    case dict:find(Name, Users) of
-        {ok, User} ->
-            Index = chat_user:get_index(User),
-            UserRooms = chat_user:get_rooms(User),
-
-            Fun = fun (RoomName, Room, Acc) ->
-                RoomIndex = chat_room:get_index(Room),
-                case Index < RoomIndex of
-                    true -> [{RoomName, RoomIndex - Index} | Acc];
-                    _ -> Acc
-                end
-            end,
-
-            {ok, dict:fold(Fun, [], dict:filter(fun(RoomName, _) ->
-                    lists:member(RoomName, UserRooms) end, Rooms))};
-
-        error -> {ok, not_found}
-    end.
-
 join_room(Name, RoomName, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:join_room(RoomName, User),
             {{ok, joined}, dict:append(Name, NewUser, Users)};
-        error -> {{ok, not_found}, Users}
+        error ->
+            {{ok, user_not_found}, Users}
     end.
 
 quit_room(Name, RoomName, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:quit_room(RoomName, User),
-            {{ok, joined}, dict:append(Name, NewUser, Users)};
-        error -> {{ok, not_found}, Users}
+            {{ok, quited}, dict:append(Name, NewUser, Users)};
+        error ->
+            {{ok, user_not_found}, Users}
     end.
 
 change_room(Name, RoomName, Users) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             NewUser = chat_user:change_room(RoomName, User),
-            {{ok, joined}, dict:append(Name, NewUser, Users)};
-        error -> {{ok, not_found}, Users}
+            {{ok, changed}, dict:append(Name, NewUser, Users)};
+        error ->
+            {{ok, user_not_found}, Users}
     end.
 
 load_history(Name, Users, Rooms) ->
@@ -113,31 +98,40 @@ load_history(Name, Users, Rooms) ->
                 error ->
                     {ok, room_not_found}
             end;
-        error -> {ok, not_found}
+        error ->
+            {ok, user_not_found}
     end.
 
 send_message(Name, Message, Users, Rooms) ->
     case dict:find(Name, Users) of
         {ok, User} ->
             RoomName = chat_user:current_room(User),
-            case dict:find(RoomName, Rooms) of
-                {ok, Room} ->
-                    Fun = fun(_, SomeUser) ->
-                        UserRooms = chat_user:get_rooms(SomeUser),
-                        case lists:member(RoomName, UserRooms) of
-                            true ->
-                                chat_user:send_message(Message, User);
-                            _ ->
-                                User
-                        end
-                    end,
-                    NewUsers = dict:map(Fun, Users),
-                    NewRooms = dict:append(RoomName, chat_room:add_message(Message, Room), Rooms),
-                    {{ok, sended}, NewUsers, NewRooms};
-                error ->
-                    {{ok, room_not_found}, Users, Rooms}
-            end;
+            send_message_to_room(RoomName, Message, Users, Rooms);
         error ->
-            {{ok, not_found}, Users, Rooms}
+            {{ok, user_not_found}, Users, Rooms}
     end.
+
+send_message_to_room(RoomName, Message, Users, Rooms) ->
+    case dict:find(RoomName, Rooms) of
+        {ok, Room} ->
+            NewRoom = chat_room:add_message(Message, Room),
+            NewRooms = dict:append(RoomName, NewRoom, Rooms),
+            UsersInRoom = dict:filter(
+                fun(_, SomeUser) ->
+                    chat_user:in_room(RoomName, SomeUser)
+                end, Users),
+            Pids = dict:fold(
+                fun(_, SomeUser, PidList) ->
+                    [chat_user:get_pid(SomeUser) | PidList]
+                end, [], UsersInRoom),
+            {{ok, start_resend}, Pids, Users, NewRooms};
+        error ->
+            {{ok, room_not_found}, [], Users, Rooms}
+    end.
+
+
+
+
+
+
 
