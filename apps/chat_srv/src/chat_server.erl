@@ -12,6 +12,7 @@
 -export ([change_room/3]).
 -export ([load_history/3]).
 -export ([send_message/4]).
+-export ([get_monitor/2]).
 
 init_users() -> dict:new().
 init_rooms() ->
@@ -21,6 +22,16 @@ init_rooms() ->
     RoomName = "Room1",
     Room = chat_room:add(RoomName),
     dict:store(RoomName, Room, dict:store(LobbyName, Lobby, Rooms)).
+
+disconnect(Pid, Users) when is_pid(Pid)->
+    Name = dict:fold(
+        fun(Name, SomeUser, NameList) ->
+            case Pid =:= chat_user:get_pid(SomeUser) of
+                true -> Name;
+                false -> NameList
+            end
+        end, undefined, Users),
+    disconnect(Name, Users);
 
 disconnect(Name, Users) ->
     case dict:find(Name, Users) of
@@ -48,16 +59,16 @@ check_password(Name, Password, Users) ->
             {ok, user_not_found}
     end.
 
-new_user(Name, Password, TCPPid, Users) ->
-    User = chat_user:new(Name, Password, TCPPid),
+new_user(Name, Password, {Pid, Monitor}, Users) ->
+    User = chat_user:new(Name, Password, chat_user:new_connection(Pid, Monitor)),
     {{ok, added_and_logged}, dict:store(Name, User, Users)}.
 
-login(Name, Password, TCPPid, Users) ->
+login(Name, Password, {Pid, Monitor}, Users) ->
     case check_password(Name, Password, Users) of
         {ok, user_not_found} ->
             {{ok, user_not_found}, Users};
         {{ok, good_password}, User} ->
-            NewUser = chat_user:login(User, TCPPid),
+            NewUser = chat_user:login(User, chat_user:new_connection(Pid, Monitor)),
             NewUsers = dict:store(Name, NewUser, Users),
             {{ok, logged}, NewUsers};
         {{ok, bad_password}, _} ->
@@ -138,7 +149,13 @@ send_message_to_room(RoomName, Message, Users, Rooms) ->
             {{ok, room_not_found}, [], Users, Rooms}
     end.
 
-
+get_monitor(Name, Users) ->
+    case dict:find(Name, Users) of
+        {ok, User} ->
+            {ok, chat_user:get_monitor(User)};
+        error ->
+            {ok, user_not_found}
+    end.
 
 
 

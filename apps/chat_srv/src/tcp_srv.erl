@@ -9,7 +9,8 @@
                 password,
                 room,
                 message,
-                socket}). % the current socket
+                socket, % the current socket
+                monitor}).
 
 -type state() :: #state{}.
 
@@ -33,16 +34,18 @@ init(Socket) ->
 
 -spec terminate(normal | shutdown | {shutdown, term()} | term(), state()) -> 'ok'.
 
-terminate(_Reason, _State) -> ok.
+terminate(_Reason, #state{monitor = Monitor} = _State) ->
+    logger:alert("TCP terminating..."),
+    erlang:demonitor(Monitor).
 
 -spec handle_cast(stop | accept, state()) -> {noreply, state()} | {stop, normal, state()}.
 
 handle_cast(accept, State = #state{socket = ListenSocket}) ->
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
     tcp_sup:start_socket(),
-    % create monitor to chat_server
+    Monitor = erlang:monitor(process, whereis(chat_srv)),
     gen_tcp:send(AcceptSocket, to_binary({ok, login})),
-    {noreply, State#state{socket = AcceptSocket}};
+    {noreply, State#state{socket = AcceptSocket, monitor = Monitor}};
 
 handle_cast(get_name, #state{socket = Socket, name = Name} = State) ->
     Result = chat_srv:check_name(Name),
@@ -103,7 +106,9 @@ handle_cast({resend_message, Message}, #state{socket = Socket} = State) ->
     gen_tcp:send(Socket, Reply),
     {noreply, State};
 
-handle_cast(stop, State) -> {stop, normal, State}.
+handle_cast(stop, State) ->
+    logger:alert("TCP receive stop message..."),
+    {stop, normal, State}.
 
 -spec handle_call(_, {_, _}, state()) -> {noreply, state()}.
 
@@ -113,6 +118,12 @@ handle_call(_E, _From, State) ->
 -spec handle_info({tcp | tcp_closed | tcp_error | _, _, _}, state()) ->
     {noreply, state()} | {stop, normal, state()}.
 
+handle_info({'DOWN', _Ref, process, _Pid, Reason}, #state{socket = Socket} = State) ->
+    logger:alert("server down with reason - ~p", [Reason]),
+    Reply = to_binary({service_message, "Server down"}),
+    gen_tcp:send(Socket, Reply),
+    gen_tcp:close(Socket),
+    {stop, normal, State};
 handle_info({tcp, Socket, Str}, State) ->
     {Cast, NewState} = case to_tuple(Str) of
         {disconnect, _} ->
@@ -143,6 +154,7 @@ handle_info({tcp, Socket, Str}, State) ->
         disconnect ->
             gen_tcp:close(Socket),
             chat_srv:disconnect(NewState#state.name),
+            logger:alert("disconnect message..."),
             {stop, normal, NewState};
         _ ->
             inet:setopts(Socket, [{active, once}]),
@@ -151,17 +163,17 @@ handle_info({tcp, Socket, Str}, State) ->
     end;
 handle_info({resend_message, Message}, #state{socket = Socket} = State) ->
     Reply = to_binary({new_message, Message}),
+    %logger:alert("send message to client - ~p", [Message]),
     gen_tcp:send(Socket, Reply),
     {noreply, State};
 handle_info({tcp_closed, _Socket}, State) ->
-    chat_srv:disconnect(State#state.name),
+    chat_srv:disconnect(State#state.name, tcp_closed),
     {stop, normal, State};
 handle_info({tcp_error, _Socket, _}, State) ->
-    chat_srv:disconnect(State#state.name),
+    chat_srv:disconnect(State#state.name, tcp_error),
     {stop, normal, State};
 handle_info(Error, State) ->
-    chat_srv:disconnect(State#state.name),
-    io:format("unexpected: ~p~n", [Error]),
+    chat_srv:disconnect(State#state.name, Error),
     {noreply, State}.
 
 to_binary(Term) ->

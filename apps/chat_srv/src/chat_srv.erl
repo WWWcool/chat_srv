@@ -1,6 +1,7 @@
 -module (chat_srv).
 
 -export ([disconnect/1]).
+-export ([disconnect/2]).
 -export ([check_name/1]).
 -export ([login/2]).
 -export ([new_user/2]).
@@ -12,7 +13,7 @@
 -export ([send_message/2]).
 
 -export([start_link/0, stop/0]).
--export([init/0, init/1, terminate/2, handle_call/3, handle_cast/2]).
+-export([init/0, init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -behavior(gen_server).
 
@@ -23,6 +24,9 @@
 %% Server API
 disconnect(Name) ->
     gen_server:call(?MODULE, {disconnect, Name}).
+
+disconnect(Name, Reason) ->
+    gen_server:call(?MODULE, {disconnect, Name, Reason}).
 
 check_name(Name) ->
     gen_server:call(?MODULE, {check_name, Name}).
@@ -84,6 +88,7 @@ handle_cast({resend_message, Message, Pids}, State) ->
         fun(Pid) ->
             case is_process_alive(Pid) of
                 true ->
+                    logger:alert("Process pid - ~p", [Pid]),
                     Pid ! {resend_message, Message};
                 false ->
                     logger:alert("Process not live - ~p", [Pid])
@@ -95,9 +100,19 @@ handle_cast(stop, State) -> {stop, normal, State}.
 
 -spec handle_call(_, {_, _}, state()) -> {noreply, state()}.
 
+handle_call({disconnect, Name, Reason}, From, State) ->
+    logger:alert("disconnect unnormaly with reason - ~p ...", [Reason]),
+    handle_call({disconnect, Name}, From, State);
+
 handle_call({disconnect, Name}, {_From, _}, #state{users = Users} = State) ->
-    {Reply, NewUsers} = chat_server:disconnect(Name, Users),
-    % demonitor here
+    logger:alert("disconnecting user - ~p ...", [Name]),
+    {Reply, NewUsers} = case chat_server:get_monitor(Name, Users) of
+        {ok, user_not_found} ->
+            {{ok, user_not_found}, Users};
+        {ok, Monitor} ->
+            erlang:demonitor(Monitor),
+            chat_server:disconnect(Name, Users)
+    end,
     {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({check_name, Name}, _From, #state{users = Users} = State) ->
@@ -105,13 +120,13 @@ handle_call({check_name, Name}, _From, #state{users = Users} = State) ->
     {reply, Reply, State};
 
 handle_call({new_user, Name, Password}, {From, _}, #state{users = Users} = State) ->
-    {Reply, NewUsers} = chat_server:new_user(Name, Password, From, Users),
-    % monitor here
+    Connection = {From, erlang:monitor(process, From)},
+    {Reply, NewUsers} = chat_server:new_user(Name, Password, Connection, Users),
     {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({login, Name, Password}, {From, _}, #state{users = Users} = State) ->
-    {Reply, NewUsers} = chat_server:login(Name, Password, From, Users),
-    % monitor here
+    Connection = {From, erlang:monitor(process, From)},
+    {Reply, NewUsers} = chat_server:login(Name, Password, Connection, Users),
     {reply, Reply, State#state{users = NewUsers}};
 
 handle_call({get_rooms}, _From, #state{rooms = Rooms} = State) ->
@@ -139,3 +154,11 @@ handle_call({send_message, Name, Message}, _From, #state{users = Users, rooms = 
     gen_server:cast(self(), {resend_message, Message, Pids}),
     {reply, Reply, State#state{users = NewUsers, rooms = NewRooms}}.
 
+handle_info({'DOWN', _Ref, process, Pid, normal}, State) ->
+    logger:alert("Proc ~p down normal", [Pid]),
+    {noreply, State};
+
+handle_info({'DOWN', _Ref, process, Pid, Reason}, #state{users = Users} = State) ->
+    {Reply, NewUsers} = chat_server:disconnect(Pid, Users),
+    logger:alert("Proc ~p down with reason - ~p, disconnect reply - ~p", [Pid, Reason, Reply]),
+    {noreply, State#state{users = NewUsers}}.

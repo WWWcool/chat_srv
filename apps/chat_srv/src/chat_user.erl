@@ -11,16 +11,21 @@
 -export ([current_room/1]).
 -export ([in_room/2]).
 -export ([get_pid/1]).
+-export ([new_connection/2]).
+-export ([get_monitor/1]).
 
 -record (user, {name,
                 pw,
                 rms,
                 current_rm,
                 state = offline :: state(),
-                pid :: pid()}).
+                connection :: connection()}).
+
+-record (connection, {pid, monitor}).
 
 -type user() :: #user{}.
 -type state() :: online | offline.
+-type connection() :: #connection{}.
 
 -export_type([user/0]).
 
@@ -32,11 +37,14 @@ check_password(Password, User) ->
             {ok, bad_password}
     end.
 
-new(Name, Password, Pid) ->
-    #user{name = Name, pw = Password, state = online, pid = Pid, rms = dict:new()}.
+new_connection(Pid, Monitor) ->
+    #connection{pid = Pid, monitor = Monitor}.
 
-login(User, Pid) ->
-    User#user{state = online, pid = Pid}.
+new(Name, Password, Connection) ->
+    #user{name = Name, pw = Password, state = online, connection = Connection, rms = dict:new()}.
+
+login(User, Connection) ->
+    User#user{state = online, connection = Connection}.
 
 logout(User) ->
     User#user{state = offline}.
@@ -81,5 +89,8 @@ in_room(RoomName, #user{rms = Rooms}) ->
     dict:is_key(RoomName, Rooms).
 
 get_pid(User) ->
-    User#user.pid.
+    (User#user.connection)#connection.pid.
+
+get_monitor(User) ->
+    (User#user.connection)#connection.monitor.
 

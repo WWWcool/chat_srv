@@ -30,10 +30,10 @@ start_link(Args) ->
 init({Port, Max}) ->
     %logger:alert("in tcp sup port - ~p and conn max - ~p", [Port, Max]),
     %% Set the socket into {active_once} mode.
-    {ok, ListenSocket} = gen_tcp:listen(Port, [{active,once}]),
+    {ok, ListenSocket} = gen_tcp:listen(Port, [{active,once}, {reuseaddr, true}]),
     spawn_link(?MODULE, empty_listeners, [Max]),
     TCPChild = {tcp_srv, {tcp_srv, start_link, [ListenSocket]},
-                temporary, 2000, worker, [tcp_srv]},
+                transient, 2000, worker, [tcp_srv]},
     {ok,    {{simple_one_for_one, 1, 1}, [TCPChild]}}.
 
 start_socket() ->
