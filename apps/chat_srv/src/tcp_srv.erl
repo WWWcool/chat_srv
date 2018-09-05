@@ -5,10 +5,10 @@
 
 -behavior(gen_server).
 
--record(state, {name,
-                password,
-                room,
-                message,
+-record(state, {name = ""    :: iolist(),
+                password = "":: iolist(),
+                room = ""    :: iolist(),
+                message = "" :: iolist(),
                 socket, % the current socket
                 monitor}).
 
@@ -32,13 +32,13 @@ init(Socket) ->
     logger:alert("TCP starts..."),
     {ok, #state{socket=Socket}}.
 
--spec terminate(normal | shutdown | {shutdown, term()} | term(), state()) -> 'ok'.
+-spec terminate(_, state()) -> true.
 
 terminate(_Reason, #state{monitor = Monitor} = _State) ->
     logger:alert("TCP terminating..."),
     erlang:demonitor(Monitor).
 
--spec handle_cast(stop | accept, state()) -> {noreply, state()} | {stop, normal, state()}.
+-spec handle_cast(_, state()) -> {noreply, state()} | {stop, normal, state()}.
 
 handle_cast(accept, State = #state{socket = ListenSocket}) ->
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
@@ -115,7 +115,7 @@ handle_cast(stop, State) ->
 handle_call(_E, _From, State) ->
     {noreply, State}.
 
--spec handle_info({tcp | tcp_closed | tcp_error | _, _, _}, state()) ->
+-spec handle_info(_, state()) ->
     {noreply, state()} | {stop, normal, state()}.
 
 handle_info({'DOWN', _Ref, process, _Pid, Reason}, #state{socket = Socket} = State) ->
@@ -176,8 +176,12 @@ handle_info(Error, State) ->
     chat_srv:disconnect(State#state.name, Error),
     {noreply, State}.
 
+-spec to_binary(term()) -> binary().
+
 to_binary(Term) ->
     erlang:term_to_binary(Term).
+
+-spec to_tuple(list()) -> term().
 
 to_tuple(Binary) ->
     erlang:binary_to_term(erlang:list_to_binary(Binary)).

@@ -24,7 +24,7 @@ start_link(Args) ->
 
 %% Supervisor callbacks
 
--spec init(list()) ->
+-spec init(tuple()) ->
     {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 
 init({Port, Max}) ->

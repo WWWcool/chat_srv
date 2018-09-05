@@ -29,6 +29,8 @@
 
 -export_type([user/0]).
 
+-spec check_password(iolist(), user()) -> {ok, good_password | bad_password}.
+
 check_password(Password, User) ->
     case User#user.pw =:= Password of
         true ->
@@ -37,20 +39,32 @@ check_password(Password, User) ->
             {ok, bad_password}
     end.
 
+-spec new_connection(pid(), reference()) -> connection().
+
 new_connection(Pid, Monitor) ->
     #connection{pid = Pid, monitor = Monitor}.
+
+-spec new(iolist(), iolist(), connection()) -> user().
 
 new(Name, Password, Connection) ->
     #user{name = Name, pw = Password, state = online, connection = Connection, rms = dict:new()}.
 
+-spec login(user(), connection()) -> user().
+
 login(User, Connection) ->
     User#user{state = online, connection = Connection}.
+
+-spec logout(user()) -> user().
 
 logout(User) ->
     User#user{state = offline}.
 
+-spec get_rooms(user()) -> list().
+
 get_rooms(#user{rms = Rooms}) ->
     dict:fetch_keys(Rooms).
+
+-spec join_room(iolist(), user()) -> user().
 
 join_room(RoomName, #user{rms = Rooms} = User) ->
     case dict:is_key(RoomName, Rooms) of
@@ -59,6 +73,8 @@ join_room(RoomName, #user{rms = Rooms} = User) ->
         false ->
             User#user{rms = dict:store(RoomName, 0, Rooms), current_rm = RoomName}
     end.
+
+-spec quit_room(iolist(), user()) -> user().
 
 quit_room(RoomName, #user{rms = Rooms, current_rm = Room} = User) ->
     case dict:is_key(RoomName, Rooms) of
@@ -74,6 +90,8 @@ quit_room(RoomName, #user{rms = Rooms, current_rm = Room} = User) ->
             end
     end.
 
+-spec change_room(iolist(), user()) -> user().
+
 change_room(RoomName, #user{rms = Rooms} = User) ->
     case dict:is_key(RoomName, Rooms) of
         false ->
@@ -82,14 +100,22 @@ change_room(RoomName, #user{rms = Rooms} = User) ->
             User#user{current_rm = RoomName}
     end.
 
+-spec current_room(user()) -> iolist().
+
 current_room(User) ->
     User#user.current_rm.
+
+-spec in_room(iolist(), user()) -> boolean().
 
 in_room(RoomName, #user{rms = Rooms}) ->
     dict:is_key(RoomName, Rooms).
 
+-spec get_pid(user()) -> pid().
+
 get_pid(User) ->
     (User#user.connection)#connection.pid.
+
+-spec get_monitor(user()) -> reference().
 
 get_monitor(User) ->
     (User#user.connection)#connection.monitor.

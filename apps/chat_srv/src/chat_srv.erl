@@ -13,44 +13,66 @@
 -export ([send_message/2]).
 
 -export([start_link/0, stop/0]).
--export([init/0, init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
+-export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -behavior(gen_server).
 
--record(state, {users, rooms}).
+-record(state, {users :: chat_server:users(), rooms :: chat_server:rooms()}).
 
 -type state() :: #state{}.
 
 %% Server API
+-spec disconnect(iolist()) -> {ok, _}.
+
 disconnect(Name) ->
     gen_server:call(?MODULE, {disconnect, Name}).
+
+-spec disconnect(iolist(), term()) -> {ok, _}.
 
 disconnect(Name, Reason) ->
     gen_server:call(?MODULE, {disconnect, Name, Reason}).
 
+-spec check_name(iolist()) -> {ok, _}.
+
 check_name(Name) ->
     gen_server:call(?MODULE, {check_name, Name}).
+
+-spec login(iolist(), iolist()) -> {ok, _}.
 
 login(Name, Password) ->
     gen_server:call(?MODULE, {login, Name, Password}).
 
+-spec new_user(iolist(), iolist()) -> {ok, _}.
+
 new_user(Name, Password) ->
     gen_server:call(?MODULE, {new_user, Name, Password}).
+
+-spec get_rooms() -> {ok, _}.
 
 get_rooms() ->
     gen_server:call(?MODULE, {get_rooms}).
 
+-spec join_room(iolist(), iolist()) -> {ok, _}.
+
 join_room(Name, Room) ->
     gen_server:call(?MODULE, {join_room, Name, Room}).
+
+-spec quit_room(iolist(), iolist()) -> {ok, _}.
 
 quit_room(Name, Room) ->
     gen_server:call(?MODULE, {quit_room, Name, Room}).
 
+-spec change_room(iolist(), iolist()) -> {ok, _}.
+
 change_room(Name, Room) ->
     gen_server:call(?MODULE, {change_room, Name, Room}).
 
+-spec load_history(iolist()) -> {ok, _}.
+
 load_history(Name) ->
     gen_server:call(?MODULE, {load_history, Name}).
+
+-spec send_message(iolist(), iolist()) -> {ok, _}.
 
 send_message(Name, Message) ->
     gen_server:call(?MODULE, {send_message, Name, Message}).
@@ -66,11 +88,6 @@ start_link() ->
 stop() -> gen_server:cast(?MODULE, stop).
 
 %% Callback Functions
--spec init() -> {ok, state()}.
-
-init() ->
-    {ok, #state{users = chat_server:init_users(), rooms = chat_server:init_rooms()}}.
-
 -spec init(term()) -> {ok, state()}.
 
 init(_) ->
@@ -98,7 +115,7 @@ handle_cast({resend_message, Message, Pids}, State) ->
 
 handle_cast(stop, State) -> {stop, normal, State}.
 
--spec handle_call(_, {_, _}, state()) -> {noreply, state()}.
+-spec handle_call(_, {_, _}, state()) -> {reply, {ok, _},state()}.
 
 handle_call({disconnect, Name, Reason}, From, State) ->
     logger:alert("disconnect unnormaly with reason - ~p ...", [Reason]),
@@ -153,6 +170,8 @@ handle_call({send_message, Name, Message}, _From, #state{users = Users, rooms = 
     {Reply, Pids, NewUsers, NewRooms} = chat_server:send_message(Name, Message, Users, Rooms),
     gen_server:cast(self(), {resend_message, Message, Pids}),
     {reply, Reply, State#state{users = NewUsers, rooms = NewRooms}}.
+
+-spec handle_info(_, state()) -> {noreply, state()}.
 
 handle_info({'DOWN', _Ref, process, Pid, normal}, State) ->
     logger:alert("Proc ~p down normal", [Pid]),
