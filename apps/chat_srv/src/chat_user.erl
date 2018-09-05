@@ -47,7 +47,7 @@ new_connection(Pid, Monitor) ->
 -spec new(iolist(), iolist(), connection()) -> user().
 
 new(Name, Password, Connection) ->
-    #user{name = Name, pw = Password, state = online, connection = Connection, rms = dict:new()}.
+    #user{name = Name, pw = Password, state = online, connection = Connection, rms = maps:new()}.
 
 -spec login(user(), connection()) -> user().
 
@@ -62,26 +62,26 @@ logout(User) ->
 -spec get_rooms(user()) -> list().
 
 get_rooms(#user{rms = Rooms}) ->
-    dict:fetch_keys(Rooms).
+    maps:keys(Rooms).
 
 -spec join_room(iolist(), user()) -> user().
 
 join_room(RoomName, #user{rms = Rooms} = User) ->
-    case dict:is_key(RoomName, Rooms) of
+    case maps:is_key(RoomName, Rooms) of
         true ->
             User#user{current_rm = RoomName};
         false ->
-            User#user{rms = dict:store(RoomName, 0, Rooms), current_rm = RoomName}
+            User#user{rms = maps:put(RoomName, 0, Rooms), current_rm = RoomName}
     end.
 
 -spec quit_room(iolist(), user()) -> user().
 
 quit_room(RoomName, #user{rms = Rooms, current_rm = Room} = User) ->
-    case dict:is_key(RoomName, Rooms) of
+    case maps:is_key(RoomName, Rooms) of
         false ->
             User;
         true ->
-            NewUser = User#user{rms = dict:erase(RoomName, Rooms)},
+            NewUser = User#user{rms = maps:remove(RoomName, Rooms)},
             case Room =:= RoomName of
                 true ->
                     NewUser#user{current_rm = undefined};
@@ -93,7 +93,7 @@ quit_room(RoomName, #user{rms = Rooms, current_rm = Room} = User) ->
 -spec change_room(iolist(), user()) -> user().
 
 change_room(RoomName, #user{rms = Rooms} = User) ->
-    case dict:is_key(RoomName, Rooms) of
+    case maps:is_key(RoomName, Rooms) of
         false ->
             join_room(RoomName, User);
         true ->
@@ -108,7 +108,7 @@ current_room(User) ->
 -spec in_room(iolist(), user()) -> boolean().
 
 in_room(RoomName, #user{rms = Rooms}) ->
-    dict:is_key(RoomName, Rooms).
+    maps:is_key(RoomName, Rooms).
 
 -spec get_pid(user()) -> pid().
 

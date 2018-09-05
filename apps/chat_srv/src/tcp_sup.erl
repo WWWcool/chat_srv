@@ -28,19 +28,22 @@ start_link(Args) ->
     {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 
 init({Port, Max}) ->
-    %logger:alert("in tcp sup port - ~p and conn max - ~p", [Port, Max]),
-    %% Set the socket into {active_once} mode.
     {ok, ListenSocket} = gen_tcp:listen(Port, [{active,once}, {reuseaddr, true}]),
     spawn_link(?MODULE, empty_listeners, [Max]),
-    TCPChild = {tcp_srv, {tcp_srv, start_link, [ListenSocket]},
-                transient, 2000, worker, [tcp_srv]},
-    {ok,    {{simple_one_for_one, 1, 1}, [TCPChild]}}.
+    Flags = #{strategy => simple_one_for_one},
+    TCPChild = #{id     => tcp_srv,
+                 start  => {tcp_srv, start_link, [ListenSocket]},
+                 restart    => transient,
+                 shutdown   => 2000,
+                 type   => worker,
+                 modules    => [tcp_srv]},
+    {ok, {Flags, [TCPChild]}}.
 
 start_socket() ->
     %logger:alert("start tcp socket"),
     supervisor:start_child(?MODULE, []).
 
 empty_listeners(Max) ->
-    [start_socket() || _ <- lists:seq(1,Max)],
+    [{ok, _Pid}] = [start_socket() || _ <- lists:seq(1,Max)],
     ok.
 

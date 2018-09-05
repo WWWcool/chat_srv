@@ -42,68 +42,68 @@ terminate(_Reason, #state{monitor = Monitor} = _State) ->
 
 handle_cast(accept, State = #state{socket = ListenSocket}) ->
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
-    tcp_sup:start_socket(),
+    {ok, _Pid} = tcp_sup:start_socket(),
     Monitor = erlang:monitor(process, whereis(chat_srv)),
-    gen_tcp:send(AcceptSocket, to_binary({ok, login})),
+    ok = gen_tcp:send(AcceptSocket, to_binary({ok, login})),
     {noreply, State#state{socket = AcceptSocket, monitor = Monitor}};
 
 handle_cast(get_name, #state{socket = Socket, name = Name} = State) ->
     Result = chat_srv:check_name(Name),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(get_old_password, #state{socket = Socket, password = Password, name = Name} = State) ->
     Result = chat_srv:login(Name, Password),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(get_new_password, #state{socket = Socket, password = Password, name = Name} = State) ->
     Result = chat_srv:new_user(Name, Password),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(get_rooms, #state{socket = Socket} = State) ->
     Result = chat_srv:get_rooms(),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(join_room, #state{name = Name, room = Room, socket = Socket} = State) ->
     Result = chat_srv:join_room(Name, Room),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(quit_room, #state{name = Name, room = Room, socket = Socket} = State) ->
     Result = chat_srv:quit_room(Name, Room),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(change_room, #state{name = Name, room = Room, socket = Socket} = State) ->
     Result = chat_srv:change_room(Name, Room),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(load_history, #state{name = Name, socket = Socket} = State) ->
     Result = chat_srv:load_history(Name),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(send_message, #state{name = Name, message = Message, socket = Socket} = State) ->
     Result = chat_srv:send_message(Name, Message),
     Reply = to_binary(Result),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast({resend_message, Message}, #state{socket = Socket} = State) ->
     Reply = to_binary({new_message, Message}),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
 handle_cast(stop, State) ->
@@ -121,8 +121,8 @@ handle_call(_E, _From, State) ->
 handle_info({'DOWN', _Ref, process, _Pid, Reason}, #state{socket = Socket} = State) ->
     logger:alert("server down with reason - ~p", [Reason]),
     Reply = to_binary({service_message, "Server down"}),
-    gen_tcp:send(Socket, Reply),
-    gen_tcp:close(Socket),
+    ok = gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:close(Socket),
     {stop, normal, State};
 handle_info({tcp, Socket, Str}, State) ->
     {Cast, NewState} = case to_tuple(Str) of
@@ -152,28 +152,28 @@ handle_info({tcp, Socket, Str}, State) ->
     end,
     case Cast of
         disconnect ->
-            gen_tcp:close(Socket),
-            chat_srv:disconnect(NewState#state.name),
+            ok = gen_tcp:close(Socket),
+            {ok, disconnected} = chat_srv:disconnect(NewState#state.name),
             logger:alert("disconnect message..."),
             {stop, normal, NewState};
         _ ->
-            inet:setopts(Socket, [{active, once}]),
+            ok = inet:setopts(Socket, [{active, once}]),
             gen_server:cast(self(), Cast),
             {noreply, NewState}
     end;
 handle_info({resend_message, Message}, #state{socket = Socket} = State) ->
     Reply = to_binary({new_message, Message}),
     %logger:alert("send message to client - ~p", [Message]),
-    gen_tcp:send(Socket, Reply),
+    ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 handle_info({tcp_closed, _Socket}, State) ->
-    chat_srv:disconnect(State#state.name, tcp_closed),
+    {ok, disconnected} = chat_srv:disconnect(State#state.name, tcp_closed),
     {stop, normal, State};
 handle_info({tcp_error, _Socket, _}, State) ->
-    chat_srv:disconnect(State#state.name, tcp_error),
+    {ok, disconnected} = chat_srv:disconnect(State#state.name, tcp_error),
     {stop, normal, State};
 handle_info(Error, State) ->
-    chat_srv:disconnect(State#state.name, Error),
+    {ok, disconnected} = chat_srv:disconnect(State#state.name, Error),
     {noreply, State}.
 
 -spec to_binary(term()) -> binary().

@@ -92,8 +92,8 @@ basic_tests(_Config) ->
     {new_message, _Message4} = tcp_recv(Socket2),
     {error, timeout} = gen_tcp:recv(Socket3, 0, 1000),
 
-    gen_tcp:close(Socket2),
-    gen_tcp:close(Socket3),
+    ok = gen_tcp:close(Socket2),
+    ok = gen_tcp:close(Socket3),
     ok.
 
 
