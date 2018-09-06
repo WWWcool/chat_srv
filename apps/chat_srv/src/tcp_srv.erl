@@ -10,7 +10,7 @@
                 room = ""    :: iolist(),
                 message = "" :: iolist(),
                 socket, % the current socket
-                monitor}).
+                monitor, state = disconnected}).
 
 -type state() :: #state{}.
 
@@ -55,13 +55,22 @@ handle_cast(get_name, #state{socket = Socket, name = Name} = State) ->
 
 handle_cast(get_old_password, #state{socket = Socket, password = Password, name = Name} = State) ->
     Result = chat_srv:login(Name, Password),
+    NewState = case Result of
+        {ok, logged} -> State#state{state = connected};
+        _ -> State
+    end,
     Reply = to_binary(Result),
     ok = gen_tcp:send(Socket, Reply),
-    {noreply, State};
+    {noreply, NewState};
 
 handle_cast(get_new_password, #state{socket = Socket, password = Password, name = Name} = State) ->
     Result = chat_srv:new_user(Name, Password),
     Reply = to_binary(Result),
+    ok = gen_tcp:send(Socket, Reply),
+    {noreply, State#state{state = connected}};
+
+handle_cast(_, #state{socket = Socket, state = Cl_state} = State) when Cl_state == disconnected ->
+    Reply = to_binary({ok, not_logged_in}),
     ok = gen_tcp:send(Socket, Reply),
     {noreply, State};
 
@@ -123,7 +132,7 @@ handle_info({'DOWN', _Ref, process, _Pid, Reason}, #state{socket = Socket} = Sta
     Reply = to_binary({service_message, "Server down"}),
     ok = gen_tcp:send(Socket, Reply),
     ok = gen_tcp:close(Socket),
-    {stop, normal, State};
+    {stop, normal, disconnect(State)};
 handle_info({tcp, Socket, Str}, State) ->
     {Cast, NewState} = case to_tuple(Str) of
         {disconnect, _} ->
@@ -147,7 +156,7 @@ handle_info({tcp, Socket, Str}, State) ->
         {send_message, Message} ->
             {send_message, State#state{message = Message}};
         Unknown ->
-            logger:alert("get unknown message - ~p disconnect...", [Unknown]),
+            logger:alert("get unknown message - ~p, disconnect...", [Unknown]),
             {disconnect, State}
     end,
     case Cast of
@@ -155,7 +164,7 @@ handle_info({tcp, Socket, Str}, State) ->
             ok = gen_tcp:close(Socket),
             {ok, disconnected} = chat_srv:disconnect(NewState#state.name),
             logger:alert("disconnect message..."),
-            {stop, normal, NewState};
+            {stop, normal, disconnect(NewState)};
         _ ->
             ok = inet:setopts(Socket, [{active, once}]),
             gen_server:cast(self(), Cast),
@@ -168,13 +177,13 @@ handle_info({resend_message, Message}, #state{socket = Socket} = State) ->
     {noreply, State};
 handle_info({tcp_closed, _Socket}, State) ->
     {ok, disconnected} = chat_srv:disconnect(State#state.name, tcp_closed),
-    {stop, normal, State};
+    {stop, normal, disconnect(State)};
 handle_info({tcp_error, _Socket, _}, State) ->
     {ok, disconnected} = chat_srv:disconnect(State#state.name, tcp_error),
-    {stop, normal, State};
+    {stop, normal, disconnect(State)};
 handle_info(Error, State) ->
     {ok, disconnected} = chat_srv:disconnect(State#state.name, Error),
-    {noreply, State}.
+    {noreply, disconnect(State)}.
 
 -spec to_binary(term()) -> binary().
 
@@ -186,5 +195,7 @@ to_binary(Term) ->
 to_tuple(Binary) ->
     erlang:binary_to_term(erlang:list_to_binary(Binary)).
 
-
+-spec disconnect(state()) -> state().
+disconnect(State) ->
+    State#state{state = disconnected}.
 
