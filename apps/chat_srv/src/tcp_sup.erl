@@ -39,9 +39,13 @@ init({Port, Max}) ->
                  modules    => [tcp_srv]},
     {ok, {Flags, [TCPChild]}}.
 
+-spec start_socket() -> {ok, pid()}.
+
 start_socket() ->
     %logger:alert("start tcp socket"),
     supervisor:start_child(?MODULE, []).
+
+-spec empty_listeners(pos_integer()) -> ok.
 
 empty_listeners(Max) ->
     [{ok, _Pid}] = [start_socket() || _ <- lists:seq(1,Max)],

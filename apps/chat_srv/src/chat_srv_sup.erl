@@ -15,7 +15,7 @@
 
 -define(SERVER, ?MODULE).
 
-%-type ip() :: {_, _, _, _}.
+-type ip() :: {_, _, _, _}.
 
 %% API functions
 -spec start_link() ->
@@ -46,30 +46,30 @@ init([]) ->
                  shutdown   => 2000,
                  type   => worker,
                  modules    => [chat_srv, chat_server, chat_user, chat_room]},
-    %CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
-    {ok, {Flags, [ChatChild, TCPChild]}}.
+    CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
+    {ok, {Flags, [ChatChild, CowboyChild, TCPChild]}}.
 
-%-spec get_cowboy_child_spec(ip(), integer()) ->
-%    supervisor:child_spec().
+-spec get_cowboy_child_spec(ip(), integer()) ->
+    supervisor:child_spec().
 
-%get_cowboy_child_spec(IP, Port) ->
-%    Dispatch = cowboy_router:compile([
-%        {'_', [
-%            {"/", cowboy_static, {priv_file, chat_srv, "index.html"}},
-%            {"/websocket", web_handler, []},
-%            {"/static/[...]", cowboy_static, {priv_dir, chat_srv, "static"}}
-%        ]}
-%    ]),
-%    ranch:child_spec(
-%        ?SERVER,
-%        ranch_tcp,
-%        [
-%            {ip, IP},
-%            {port, Port},
-%            {num_acceptors, 4}
-%        ],
-%        cowboy_clear,
-%        #{
-%            env => #{dispatch => Dispatch}
-%        }
-%    ).
+get_cowboy_child_spec(IP, Port) ->
+    Dispatch = cowboy_router:compile([
+        {'_', [
+            {"/", cowboy_static, {priv_file, chat_srv, "index.html"}},
+            {"/websocket", web_handler, []},
+            {"/static/[...]", cowboy_static, {priv_dir, chat_srv, "static"}}
+        ]}
+    ]),
+    ranch:child_spec(
+        ?SERVER,
+        ranch_tcp,
+        [
+            {ip, IP},
+            {port, Port},
+            {num_acceptors, 4}
+        ],
+        cowboy_clear,
+        #{
+            env => #{dispatch => Dispatch}
+        }
+    ).

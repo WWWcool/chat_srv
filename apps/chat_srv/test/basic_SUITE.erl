@@ -2,18 +2,44 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0]).
+-export([init_per_suite/1]).
+-export([end_per_suite/1]).
+-export([init_per_testcase/2]).
+-export([end_per_testcase/2]).
+
 -export([basic_tests/1]).
 
-all() -> [basic_tests].
+%% tests descriptions
 
-init_per_testcase(basic_tests, Config) ->
-    {ok, Pid} = chat_srv_sup:start_link(),
-    [{sup_pid, Pid} | Config].
+-type config() :: [{atom(), term()}].
 
-end_per_testcase(basic_tests, Config) ->
-    Pid = ?config(sup_pid, Config),
-    exit(Pid, normal),
+-define(config(Key, C), (element(2, lists:keyfind(Key, 1, C)))).
+
+-spec all() -> [atom()].
+all() ->
+    [
+        basic_tests
+    ].
+
+%% starting/stopping
+-spec init_per_suite(config()) -> config().
+init_per_suite(C) ->
+    {ok, _} = application:ensure_all_started(chat_srv),
+    {ok, _} = application:ensure_all_started(chat_client),
+    C.
+
+-spec end_per_suite(config()) -> term().
+end_per_suite(_C) ->
+    ok.
+
+%% tests
+-spec init_per_testcase(atom(), config()) -> config().
+init_per_testcase(basic_tests, C) ->
+    C.
+
+-spec end_per_testcase(atom(), config()) -> ok.
+end_per_testcase(basic_tests, _C) ->
     ok.
 
 tcp_send(Socket, Tuple) ->
