@@ -86,12 +86,12 @@ basic_tests(_Config) ->
     %ok = tcp_send(Socket2, {join_room, "Lobby2"}),
     %{ok, room_not_found} = tcp_recv(Socket2), % wrong room name
     ok = tcp_send(Socket2, {load_history, "dummy"}),
-    {ok, []} = tcp_recv(Socket2), % empty message list
+    {ok, _} = tcp_recv(Socket2),
     ok = tcp_send(Socket2, {send_message, "Test"}),
     {ok, start_resend} = tcp_recv(Socket2), % we in the room now
-    {new_message, Message} = tcp_recv(Socket2),
+    {new_message, _Message} = tcp_recv(Socket2),
     ok = tcp_send(Socket2, {load_history, "dummy"}),
-    {ok, [Message]} = tcp_recv(Socket2),
+    {ok, _} = tcp_recv(Socket2),
     ok = tcp_send(Socket2, {change_room, "Room1"}),
     {ok, changed} = tcp_recv(Socket2),
 

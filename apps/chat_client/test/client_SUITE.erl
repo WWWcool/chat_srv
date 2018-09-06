@@ -51,7 +51,7 @@ recive_messages() ->
 basic_tests(_Config) ->
     {ok, connecting} = chat_client:connect({127,0,0,1}, 8080 + 1, client_test1),
     {ok, connected} = recive_messages(),
-    {ok, checking_name} = chat_client:signin("Name", "123", client_test1),
+    {ok, checking_name} = chat_client:signin("Client", "123", client_test1),
     {ok, logged} = recive_messages(),
     {ok, getting} = chat_client:get_rooms(client_test1),
     {rooms, _List} = recive_messages(),
@@ -64,9 +64,9 @@ basic_tests(_Config) ->
 
     {ok, connecting} = chat_client:connect({127,0,0,1}, 8080 + 1, client_test1),
     {ok, connected} = recive_messages(),
-    {ok, checking_name} = chat_client:signin("Name", "12", client_test1),
+    {ok, checking_name} = chat_client:signin("Client", "12", client_test1),
     {error, bad_password} = recive_messages(),
-    {ok, checking_name} = chat_client:signin("Name", "123", client_test1),
+    {ok, checking_name} = chat_client:signin("Client", "123", client_test1),
     {ok, logged} = recive_messages(),
 
     % we in last joined room now
@@ -75,7 +75,7 @@ basic_tests(_Config) ->
 
     {ok, connecting} = chat_client:connect({127,0,0,1}, 8080 + 1, client_test2),
     {ok, connected} = recive_messages(),
-    {ok, checking_name} = chat_client:signin("Name2", "1234", client_test2),
+    {ok, checking_name} = chat_client:signin("Client2", "1234", client_test2),
     {ok, logged} = recive_messages(),
     {ok, getting} = chat_client:get_rooms(client_test2),
     {rooms, _List} = recive_messages(),

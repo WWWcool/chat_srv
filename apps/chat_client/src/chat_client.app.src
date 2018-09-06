@@ -5,8 +5,7 @@
   {mod, { chat_client_app, []}},
   {applications,
    [kernel,
-    stdlib,
-    json_proto
+    stdlib
    ]},
   {env,[]},
   {modules, [chat_client_app, chat_client_sup, chat_client]},

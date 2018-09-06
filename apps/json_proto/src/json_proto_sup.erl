@@ -31,7 +31,14 @@ start_link() ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    {ok, { {one_for_all, 0, 1}, []} }.
+    Flags = #{strategy => one_for_all},
+%    ProtoChild = #{id     => json_proto,
+%                 start  => {json_proto, start_link, []},
+%                 restart    => permanent,
+%                 shutdown   => 2000,
+%                 type   => worker,
+%                 modules    => [json_proto]},
+    {ok, {Flags, []}}.
 
 %%====================================================================
 %% Internal functions
