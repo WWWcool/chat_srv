@@ -9,6 +9,7 @@
 -export([end_per_testcase/2]).
 
 -export([basic_tests/1]).
+-export([ws_tests/1]).
 
 %% tests descriptions
 
@@ -19,14 +20,15 @@
 -spec all() -> [atom()].
 all() ->
     [
-        basic_tests
+        %basic_tests,
+        ws_tests
     ].
 
 %% starting/stopping
 -spec init_per_suite(config()) -> config().
 init_per_suite(C) ->
     {ok, _} = application:ensure_all_started(chat_srv),
-    {ok, _} = application:ensure_all_started(chat_client),
+    %{ok, _} = application:ensure_all_started(chat_client),
     C.
 
 -spec end_per_suite(config()) -> term().
@@ -35,11 +37,17 @@ end_per_suite(_C) ->
 
 %% tests
 -spec init_per_testcase(atom(), config()) -> config().
+
 init_per_testcase(basic_tests, C) ->
+    C;
+init_per_testcase(ws_tests, C) ->
     C.
 
 -spec end_per_testcase(atom(), config()) -> ok.
+
 end_per_testcase(basic_tests, _C) ->
+    ok;
+end_per_testcase(ws_tests, _C) ->
     ok.
 
 tcp_send(Socket, Tuple) ->
@@ -122,7 +130,39 @@ basic_tests(_Config) ->
     ok = gen_tcp:close(Socket3),
     ok.
 
+ws_tests(_Config) ->
+    {ok, _} = application:ensure_all_started(gun),
+    {ok, ConnPid} = gun:open("localhost", 8080),
+    {ok, _Protocol} = gun:await_up(ConnPid),
 
+    WRef = gun:ws_upgrade(ConnPid, "/websocket",[],#{compress => true}),
+    logger:alert("get ref - ~p", [WRef]),
+
+    receive
+    {gun_upgrade, ConnPid, WRef, _, Headers} ->
+            upgrade_success(ConnPid, Headers);
+    {gun_ws_upgrade, ConnPid, ok, Headers} ->
+            upgrade_success(ConnPid, Headers);
+    {gun_response, ConnPid, _, _, Status, Headers} ->
+            exit({ws_upgrade_failed, Status, Headers});
+    {gun_error, _ConnPid, _StreamRef, Reason} ->
+            exit({ws_upgrade_failed, Reason});
+    Message ->
+        logger:alert("Unexpected message - ~p", [Message])
+    %% More clauses here as needed.
+    after 1000 ->
+        exit(timeout)
+    end,
+
+    gun:shutdown(ConnPid),
+    ok.
+
+
+upgrade_success(ConnPid, Headers) ->
+    logger:alert("Upgraded ~w. Success!~nHeaders:~n~p~n",
+              [ConnPid, Headers]),
+
+    gun:ws_send(ConnPid, {text, "It's raining!"}).
 
 
 

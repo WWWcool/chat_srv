@@ -4,37 +4,37 @@
     <title>Websocket client</title>
     <script src="/static/jquery.min.js"></script>
     <script type="text/javascript">
-      
+
       var websocket;
       $(document).ready(init);
-      
+
       function init() {
           $('#server').val("ws://" + window.location.host + "/websocket");
-          if(!("WebSocket" in window)){  
+          if(!("WebSocket" in window)){
               $('#status').append('<p><span style="color: red;">websockets are not supported </span></p>');
-              $("#navigation").hide();  
+              $("#navigation").hide();
           } else {
               $('#status').append('<p><span style="color: green;">websockets are supported </span></p>');
               connect();
           };
-              $("#connected").hide(); 	
-              $("#content").hide(); 	
+              $("#connected").hide();
+              $("#content").hide();
       };
 
       function connect()
       {
           wsHost = $("#server").val()
           websocket = new WebSocket(wsHost);
-          showScreen('<b>Connecting to: ' +  wsHost + '</b>'); 
-          websocket.onopen = function(evt) { onOpen(evt) }; 
-          websocket.onclose = function(evt) { onClose(evt) }; 
-          websocket.onmessage = function(evt) { onMessage(evt) }; 
-          websocket.onerror = function(evt) { onError(evt) }; 
-      };  
-      
+          showScreen('<b>Connecting to: ' +  wsHost + '</b>');
+          websocket.onopen = function(evt) { onOpen(evt) };
+          websocket.onclose = function(evt) { onClose(evt) };
+          websocket.onmessage = function(evt) { onMessage(evt) };
+          websocket.onerror = function(evt) { onError(evt) };
+      };
+
       function disconnect() {
           websocket.close();
-      }; 
+      };
 
       function toggle_connection(){
           if(websocket.readyState == websocket.OPEN){
@@ -46,38 +46,38 @@
 
       function sendTxt() {
           if(websocket.readyState == websocket.OPEN){
-              txt = $("#send_txt").val();
-              websocket.send(txt);
-              showScreen('sending: ' + txt); 
+              txt = {"message": $("#send_txt").val()};
+              websocket.send(JSON.stringify(txt));
+              showScreen('sending: ' + txt);
           } else {
-               showScreen('websocket is not connected'); 
+               showScreen('websocket is not connected');
           };
       };
 
-      function onOpen(evt) { 
-          showScreen('<span style="color: green;">CONNECTED </span>'); 
+      function onOpen(evt) {
+          showScreen('<span style="color: green;">CONNECTED </span>');
           $("#connected").fadeIn('slow');
           $("#content").fadeIn('slow');
-      };  
+      };
 
-      function onClose(evt) { 
+      function onClose(evt) {
           showScreen('<span style="color: red;">DISCONNECTED </span>');
-      };  
+      };
 
-      function onMessage(evt) { 
-          showScreen('<span style="color: blue;">RESPONSE: ' + evt.data+ '</span>'); 
-      };  
+      function onMessage(evt) {
+          showScreen('<span style="color: blue;">RESPONSE: ' + evt.data+ '</span>');
+      };
 
       function onError(evt) {
           showScreen('<span style="color: red;">ERROR: ' + evt.data+ '</span>');
       };
 
-      function showScreen(txt) { 
+      function showScreen(txt) {
           $('#output').prepend('<p>' + txt + '</p>');
       };
 
-      function clearScreen() 
-      { 
+      function clearScreen()
+      {
           $('#output').html("");
       };
     </script>
@@ -96,18 +96,18 @@
 	<input type='text' id="server" value=""></input>
 	<button type="button" onclick="toggle_connection()">connection</button>
       </p>
-      <div id="connected">				
+      <div id="connected">
 	<p>
 	  <input type='text' id="send_txt" value=></input>
 	  <button type="button" onclick="sendTxt();">send</button>
 	</p>
       </div>
 
-      <div id="content">						
+      <div id="content">
 	<button id="clear" onclick="clearScreen()" >Clear text</button>
 	<div id="output"></div>
       </div>
 
     </div>
   </body>
-</html> 
+</html>

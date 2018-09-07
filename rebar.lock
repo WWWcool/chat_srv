@@ -5,12 +5,14 @@
   {git,"https://github.com/rbkmoney/genlib",
        {ref,"8501050c19e5a36063cf0ae0d181245662bdfa32"}},
   0},
+ {<<"gun">>,{pkg,<<"gun">>,<<"1.1.0">>},0},
  {<<"jiffy">>,{pkg,<<"jiffy">>,<<"0.15.2">>},0},
  {<<"ranch">>,{pkg,<<"ranch">>,<<"1.5.0">>},1}]}.
 [
 {pkg_hash,[
  {<<"cowboy">>, <<"F1B72FABE9C8A5FC64AC5AC85FB65474D64733D1DF52A26FAD5D4BA3D9F70A9F">>},
  {<<"cowlib">>, <<"BBD58EF537904E4F7C1DD62E6AA8BC831C8183CE4EFA9BD1150164FE15BE4CAA">>},
+ {<<"gun">>, <<"66BE4EBB3A8018B2CA0216EB0C5FE89820F3CE3610E9EC0652F525690956F69F">>},
  {<<"jiffy">>, <<"DE266C390111FD4EA28B9302F0BC3D7472468F3B8E0ACEABFBEFA26D08CD73B7">>},
  {<<"ranch">>, <<"F04166F456790FEE2AC1AA05A02745CC75783C2BFB26D39FAF6AEFC9A3D3A58A">>}]}
 ].
