@@ -6,6 +6,7 @@
     <script type="text/javascript">
 
       var websocket;
+      var state = 'undefined';
       $(document).ready(init);
 
       function init() {
@@ -44,14 +45,22 @@
           };
       };
 
+      function sendToServer(type, data){
+        if(websocket.readyState == websocket.OPEN){
+            txt = {type: data};
+            websocket.send(JSON.stringify(txt));
+            showScreen('sending: ' + txt);
+        } else {
+            showScreen('websocket is not connected');
+        };
+      }
+
       function sendTxt() {
-          if(websocket.readyState == websocket.OPEN){
-              txt = {"message": $("#send_txt").val()};
-              websocket.send(JSON.stringify(txt));
-              showScreen('sending: ' + txt);
-          } else {
-               showScreen('websocket is not connected');
-          };
+        sendToServer('send_message', $("#send_txt").val());
+      };
+
+      function login() {
+        sendToServer('enter_name', $("#send_name").val());
       };
 
       function onOpen(evt) {
@@ -64,9 +73,58 @@
           showScreen('<span style="color: red;">DISCONNECTED </span>');
       };
 
-      function onMessage(evt) {
-          showScreen('<span style="color: blue;">RESPONSE: ' + evt.data+ '</span>');
+      function onMessage(evt)
+      {
+        Result = JSON.parse(evt.data);
+        text = Result.type;
+        switch (Result.type)
+        {
+            case 'error':
+            case 'ok':
+                if(state != 'get_rooms' || state != 'load_history')
+                {
+                    switch(Result.data)
+                    {
+                        case 'disconnect':
+                        case 'login':
+                        case 'user_not_found':
+                            sendToServer('enter_new_password', $("#send_pw").val());
+                            break;
+                        case 'found':
+                            sendToServer('enter_old_password', $("#send_pw").val());
+                            break;
+                        case 'added_and_logged':
+                        case 'logged':
+                        case 'bad_password':
+                        case 'room_not_found':
+                        case 'start_resend':
+                        case 'joined':
+                        case 'quited':
+                        case 'changed':
+                        default:
+                            printError('unknown message data - ' + Result.data);
+                    }
+                }
+                else
+                {
+                    switch(state)
+                    {
+                        case 'get_rooms':
+                        case 'load_history':
+                        default:
+                            printError('unknown message state - ' + state);
+                    }
+                }
+            case 'new_message':
+                showScreen('<span style="color: blue;">' + Result.data + '</span>');
+            default :
+                printError('unknown message type - ' + Result.type);
+        }
       };
+
+      function printError(error){
+        showScreen('<span style="color: red;">' + error + '</span>');
+      }
 
       function onError(evt) {
           showScreen('<span style="color: red;">ERROR: ' + evt.data+ '</span>');
@@ -98,6 +156,11 @@
       </p>
       <div id="connected">
 	<p>
+      <input type='text' id="send_name" value=>name</input>
+      <input type='text' id="send_pw" value=>password</input>
+      <button type="button" onclick="login();">login</button>
+    </p>
+    <p>
 	  <input type='text' id="send_txt" value=></input>
 	  <button type="button" onclick="sendTxt();">send</button>
 	</p>

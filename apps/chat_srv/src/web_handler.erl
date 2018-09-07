@@ -29,44 +29,44 @@ websocket_handle({text, Message}, #state{state = Cl_state} = State) ->
     Tuple = json_proto:decode(Message),
     logger:alert("Handle message - ~p", [Tuple]),
     {Reply, NewState} = case Tuple of
-        {[{disconnect,_}]} ->
+        {[{<<"disconnect">>,_}]} ->
             {{ok, disconnected}, State#state{state = disconnected}};
         {[{<<"enter_name">>, Name}]} ->
             Result = chat_srv:check_name(Name),
             {Result, State#state{name = Name}};
-        {[{enter_old_password, Password}]} ->
+        {[{<<"enter_old_password">>, Password}]} ->
             Result = chat_srv:login(State#state.name, Password),
             SomeState = case Result of
                 {ok, logged} -> State#state{state = connected};
                 _ -> State
             end,
             {Result, SomeState};
-        {[{enter_new_password, Password}]} ->
+        {[{<<"enter_new_password">>, Password}]} ->
             Result = chat_srv:new_user(State#state.name, Password),
             {Result, State#state{state = connected}};
         {[_, _]} when Cl_state == disconnected ->
             {{error, disconnected}, State};
-        {[{get_rooms, _}]} ->
+        {[{<<"get_rooms">>, _}]} ->
             Result = chat_srv:get_rooms(),
             {Result, State};
-        {[{join_room, Room}]} ->
+        {[{<<"join_room">>, Room}]} ->
             Result = chat_srv:join_room(State#state.name, Room),
             {Result, State};
-        {[{quit_room, Room}]} ->
+        {[{<<"quit_room">>, Room}]} ->
             Result = chat_srv:quit_room(State#state.name, Room),
             {Result, State};
-        {[{change_room, Room}]} ->
+        {[{<<"change_room">>, Room}]} ->
             Result = chat_srv:change_room(State#state.name, Room),
             {Result, State};
-        {[{load_history, _}]} ->
+        {[{<<"load_history">>, _}]} ->
             Result = chat_srv:load_history(State#state.name),
             {Result, State};
-        {[{send_message, Message}]} ->
+        {[{<<"send_message">>, Message}]} ->
             Result = chat_srv:send_message(State#state.name, Message),
             {Result, State};
         Unknown ->
             logger:alert("get unknown message - ~p", [Unknown]),
-            {disconnect, State}
+            {{ok, disconnect}, State}
     end,
     {reply, {text, json_proto:encode(Reply)}, NewState};
 websocket_handle(_Data, State) ->

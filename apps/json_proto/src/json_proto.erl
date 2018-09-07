@@ -6,5 +6,5 @@
 decode(Json) ->
     jiffy:decode(Json).
 
-encode(Tuple) ->
-    jiffy:encode(erlang:term_to_binary(Tuple)).
+encode({Type, Data}) ->
+    jiffy:encode(#{type => Type, data => Data}).
