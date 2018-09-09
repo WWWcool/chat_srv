@@ -80,43 +80,77 @@
         switch (Result.type)
         {
             case 'error':
+              printError('unknown message data - ' + Result.data);
+              break;
             case 'ok':
-                if(state != 'get_rooms' || state != 'load_history')
-                {
-                    switch(Result.data)
-                    {
-                        case 'disconnect':
-                        case 'login':
-                        case 'user_not_found':
-                            sendToServer('enter_new_password', $("#send_pw").val());
-                            break;
-                        case 'found':
-                            sendToServer('enter_old_password', $("#send_pw").val());
-                            break;
-                        case 'added_and_logged':
-                        case 'logged':
-                        case 'bad_password':
-                        case 'room_not_found':
-                        case 'start_resend':
-                        case 'joined':
-                        case 'quited':
-                        case 'changed':
-                        default:
-                            printError('unknown message data - ' + Result.data);
-                    }
-                }
-                else
-                {
-                    switch(state)
-                    {
-                        case 'get_rooms':
-                        case 'load_history':
-                        default:
-                            printError('unknown message state - ' + state);
-                    }
-                }
+              if(state != 'get_rooms' || state != 'load_history')
+              {
+                  switch(Result.data)
+                  {
+                      case 'disconnect':
+                        showScreen('disconnect');
+                        break;
+                      case 'login':
+                      case 'user_not_found':
+                        sendToServer('enter_new_password', $("#send_pw").val());
+                        break;
+                      case 'found':
+                        sendToServer('enter_old_password', $("#send_pw").val());
+                        break;
+                      case 'added_and_logged':
+                      case 'logged':
+                        sendToServer('get_rooms', "dummy");
+                        showScreen('logged to server');
+                        state = 'get_rooms';
+                        break;
+                      case 'bad_password':
+                        printError('bad password');
+                        break;
+                      case 'room_not_found':
+                        printError('room ton found');
+                        break;
+                      case 'start_resend':
+                        showScreen('sended');
+                        break;
+                      case 'joined':
+                        showScreen('join room');
+                        sendToServer('load_history', "dummy");
+                        state = 'load_history';
+                        break;
+                      case 'quited':
+                        showScreen('quit room');
+                        sendToServer('load_history', "dummy");
+                        state = 'load_history';
+                        break;
+                      case 'changed':
+                        showScreen('change room');
+                        sendToServer('load_history', "dummy");
+                        state = 'load_history';
+                        break;
+                      default:
+                        printError('unknown message data - ' + Result.data);
+                  }
+              }
+              else
+              {
+                  switch(state)
+                  {
+                      case 'get_rooms':
+                        showScreen('rooms - ' + Result.data);
+                        break;
+                      case 'load_history':
+                        clearScreen();
+                        showScreen('<span style="color: blue;">' + Result.data + '</span>');
+                        break;
+                      default:
+                          printError('unknown message state - ' + state);
+                  }
+                  state = 'undefined';
+              }
+              break;
             case 'new_message':
                 showScreen('<span style="color: blue;">' + Result.data + '</span>');
+              break;
             default :
                 printError('unknown message type - ' + Result.type);
         }
@@ -165,12 +199,10 @@
 	  <button type="button" onclick="sendTxt();">send</button>
 	</p>
       </div>
-
       <div id="content">
 	<button id="clear" onclick="clearScreen()" >Clear text</button>
 	<div id="output"></div>
       </div>
-
     </div>
   </body>
 </html>
