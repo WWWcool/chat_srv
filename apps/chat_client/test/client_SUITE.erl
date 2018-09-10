@@ -55,7 +55,7 @@ basic_tests(_Config) ->
     {ok, logged} = recive_messages(),
     {ok, getting} = chat_client:get_rooms(client_test1),
     {rooms, _List} = recive_messages(),
-    {ok, joining} = chat_client:join_room("Lobby", client_test1),
+    {ok, joining} = chat_client:join_room(<<"Lobby">>, client_test1),
     {ok, joined} = recive_messages(),
     {ok, sending} = chat_client:send_message("Test -- 1", client_test1),
     {ok, sended} = recive_messages(),
@@ -79,7 +79,7 @@ basic_tests(_Config) ->
     {ok, logged} = recive_messages(),
     {ok, getting} = chat_client:get_rooms(client_test2),
     {rooms, _List} = recive_messages(),
-    {ok, joining} = chat_client:join_room("Lobby", client_test2),
+    {ok, joining} = chat_client:join_room(<<"Lobby">>, client_test2),
     {ok, joined} = recive_messages(),
 
     {ok, sending} = chat_client:send_message("Test -- 2", client_test2),
@@ -92,7 +92,7 @@ basic_tests(_Config) ->
     {new_message, Message_3} = recive_messages(),
     {new_message, Message_3} = recive_messages(),
 
-    {ok, quiting} = chat_client:quit_room("Lobby", client_test1),
+    {ok, quiting} = chat_client:quit_room(<<"Lobby">>, client_test1),
     {ok, quited} = recive_messages(),
 
     {ok, sending} = chat_client:send_message("Test -- 4", client_test2),

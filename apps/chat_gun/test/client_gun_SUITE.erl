@@ -49,20 +49,20 @@ recive_messages() ->
     end.
 
 basic_tests(_Config) ->
-    {ok, connecting} = gun_client:connect({127,0,0,1}, 8080, client_gun1),
+    {ok, connecting} = gun_client:connect("localhost", 8080, client_gun1),
     {ok, connected} = recive_messages(),
-    {ok, checking_name} = gun_client:signin("Client", "123", client_gun1),
+    {ok, checking_name} = gun_client:signin("Gun", "123", client_gun1),
     {ok, logged} = recive_messages(),
     {ok, getting} = gun_client:get_rooms(client_gun1),
     {rooms, _List} = recive_messages(),
-    {ok, joining} = gun_client:join_room("Lobby", client_gun1),
+    {ok, joining} = gun_client:join_room(<<"Lobby">>, client_gun1),
     {ok, joined} = recive_messages(),
     {ok, sending} = gun_client:send_message("Test -- 1", client_gun1),
     {ok, sended} = recive_messages(),
     {new_message, _Message} = recive_messages(),
     {ok, disconnected} = gun_client:disconnect(client_gun1),
 
-    {ok, connecting} = gun_client:connect({127,0,0,1}, 8080, client_gun1),
+    {ok, connecting} = gun_client:connect("localhost", 8080, client_gun1),
     {ok, connected} = recive_messages(),
     {ok, checking_name} = gun_client:signin("Gun", "12", client_gun1),
     {error, bad_password} = recive_messages(),
@@ -73,13 +73,13 @@ basic_tests(_Config) ->
     {ok, loading} = gun_client:load_history(client_gun1),
     {history, _Messages} = recive_messages(),
 
-    {ok, connecting} = gun_client:connect({127,0,0,1}, 8080 + 1, client_gun2),
+    {ok, connecting} = gun_client:connect("localhost", 8080, client_gun2),
     {ok, connected} = recive_messages(),
     {ok, checking_name} = gun_client:signin("Gun2", "1234", client_gun2),
     {ok, logged} = recive_messages(),
     {ok, getting} = gun_client:get_rooms(client_gun2),
     {rooms, _List} = recive_messages(),
-    {ok, joining} = gun_client:join_room("Lobby", client_gun2),
+    {ok, joining} = gun_client:join_room(<<"Lobby">>, client_gun2),
     {ok, joined} = recive_messages(),
 
     {ok, sending} = gun_client:send_message("Test -- 2", client_gun2),
@@ -92,7 +92,7 @@ basic_tests(_Config) ->
     {new_message, Message_3} = recive_messages(),
     {new_message, Message_3} = recive_messages(),
 
-    {ok, quiting} = gun_client:quit_room("Lobby", client_gun1),
+    {ok, quiting} = gun_client:quit_room(<<"Lobby">>, client_gun1),
     {ok, quited} = recive_messages(),
 
     {ok, sending} = gun_client:send_message("Test -- 4", client_gun2),

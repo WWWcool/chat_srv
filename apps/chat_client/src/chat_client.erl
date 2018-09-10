@@ -219,7 +219,7 @@ handle_info({tcp, Socket, Str}, #state{state = Cl_state, pid = Pid} = State) ->
     case Cast of
         disconnect ->
             {ok, NewState2} = tcp_close(Socket, NewState),
-            {stop, normal, NewState2};
+            {noreply, NewState2};
         ok ->
             {noreply, NewState};
         _ ->
@@ -228,10 +228,10 @@ handle_info({tcp, Socket, Str}, #state{state = Cl_state, pid = Pid} = State) ->
     end;
 handle_info({tcp_closed, Socket}, State) ->
     {ok, NewState} = tcp_close(Socket, State),
-    {stop, normal, NewState};
+    {noreply, NewState};
 handle_info({tcp_error, Socket, _}, State) ->
     {ok, NewState} = tcp_close(Socket, State),
-    {stop, normal, NewState};
+    {noreply, NewState};
 handle_info(_Error, State) ->
     logger:alert("get unknown message - ~p ...", [_Error]),
     {noreply, State}.

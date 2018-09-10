@@ -40,7 +40,7 @@ start_link() ->
 
 init([]) ->
     Name = "gun",
-    Max = 2,
+    Max = 3,
     logger:alert("start client sup name - ~p, count - ~p", [Name, Max]),
     Flags = #{strategy => simple_one_for_one},
     spawn_link(?MODULE, empty_clients, [Max]),

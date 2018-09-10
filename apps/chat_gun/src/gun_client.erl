@@ -99,20 +99,29 @@ terminate(_Reason, _State) ->
 
 -spec handle_cast(stop, state()) -> {stop, normal, state()}.
 
+handle_cast(signup, #state{connpid = ConnPid, password = Password} = State) ->
+    ok = ws_send(ConnPid, {enter_new_password, Password}),
+    {noreply, State};
+
+handle_cast(signin, #state{connpid = ConnPid, password = Password} = State) ->
+    ok = ws_send(ConnPid, {enter_old_password, Password}),
+    {noreply, State};
+
 handle_cast(stop, State) -> {stop, normal, State}.
 
 -spec handle_call(_, {_, _}, state()) -> {reply, {ok | error, _},state()}.
 
 handle_call({disconnect}, _From, #state{connpid = ConnPid} = State) ->
     ok = ws_send(ConnPid, {disconnect, "dummy"}),
-    {reply, {ok, disconnected}, State};
+    ws_disconnect(ConnPid),
+    {reply, {ok, disconnected}, State#state{state = disconnected}};
 
 handle_call({connect, Ip, Port}, {From, _}, State) ->
     {ok, ConnPid} = gun:open(Ip, Port),
     logger:alert("gun opened with result connpid - ~p", [ConnPid]),
     {ok, _Protocol} = gun:await_up(ConnPid),
     logger:alert("gun awaited up - ~p", [_Protocol]),
-    StreamRef = gun:ws_upgrade(ConnPid, "/websocket"),
+    StreamRef = gun:ws_upgrade(ConnPid, "/websocket", [], #{compress => true}),
     logger:alert("gun upgraded StreamRef - ~p", [StreamRef]),
     Monitor = erlang:monitor(process, From),
     {reply, {ok, connecting}, State#state{pid = From, monitor = Monitor}};
@@ -165,47 +174,50 @@ handle_call({send_message, Message}, _From, #state{connpid = ConnPid} = State) -
 handle_info({'DOWN', _Ref, process, _Pid, Reason}, State) ->
     logger:alert("client down with reason - ~p", [Reason]),
     {stop, normal, State};
-handle_info({text, Message}, #state{state = Cl_state, pid = Pid} = State) when Cl_state /= disconnected ->
+handle_info({gun_ws, _, _, {text, Message}}, #state{connpid = ConnPid, state = Cl_state, pid = Pid} = State) when Cl_state /= disconnected ->
     logger:alert("pid - ~p get answer from server - ~p", [self(), json_proto:decode(Message)]),
-    {Cast, NewState} = case json_proto:decode(Message) of
-        {[{disconnect, _}]} ->
+    Map = json_proto:decode(Message),
+    Type = maps:get(<<"type">>, Map),
+    Data = maps:get(<<"data">>, Map),
+    {Cast, NewState} = case {Type, Data} of
+        {<<"disconnect">>, _} ->
             {disconnect, State};
-        {[{ok, login}]} ->
+        {<<"ok">>, <<"login">>} ->
             {ok, connected} = answer(Pid, {ok, connected}),
             {ok, State#state{state = connected}};
-        {[{ok, user_not_found}]} when Cl_state == connected ->
+        {<<"ok">>, <<"user_not_found">>} when Cl_state == established ->
             {signup, State};
-        {[{ok, found}]} ->
+        {<<"ok">>, <<"found">>} ->
             {signin, State};
-        {[{ok, added_and_logged}]} ->
+        {<<"ok">>, <<"added_and_logged">>} ->
             {ok, logged} = answer(Pid, {ok, logged}),
             {ok, State#state{state = logged}};
-        {[{ok, bad_password}]} ->
+        {<<"ok">>, <<"bad_password">>} ->
             {error, bad_password} = answer(Pid, {error, bad_password}),
             {ok, State};
-        {[{ok, logged}]} = Ok ->
-            Ok = answer(Pid, Ok),
+        {<<"ok">>, <<"logged">>} ->
+            {ok, logged} = answer(Pid, {ok, logged}),
             {ok, State#state{state = logged}};
-        {[{ok, List}]} when Cl_state == get_rooms ->
+        {<<"ok">>, List} when Cl_state == get_rooms ->
             {rooms, List} = answer(Pid, {rooms, List}),
             {ok, State#state{state = connected, rooms = List}};
-        {[{ok, List}]} when Cl_state == load_history ->
+        {<<"ok">>, List} when Cl_state == load_history ->
             {history, List} = answer(Pid, {history, List}),
             {ok, State#state{state = connected, msg_buffer = List}};
-        {[{ok, joined}]} = Ok ->
-            Ok = answer(Pid, Ok),
+        {<<"ok">>, <<"joined">>} ->
+            {ok, joined} = answer(Pid, {ok, joined}),
             {ok, State};
-        {[{ok, quited}]} = Ok ->
-            Ok = answer(Pid, Ok),
+        {<<"ok">>, <<"quited">>} ->
+            {ok, quited} = answer(Pid, {ok, quited}),
             {ok, State};
-        {[{ok, changed}]} = Ok ->
-            Ok = answer(Pid, Ok),
+        {<<"ok">>, <<"changed">>} ->
+            {ok, changed} = answer(Pid, {ok, changed}),
             {ok, State};
-        {[{ok, start_resend}]} ->
+        {<<"ok">>, <<"start_resend">>} ->
             {ok, sended} = answer(Pid, {ok, sended}),
             {ok, State};
-        {[{new_message, _}]} = Ok ->
-            Ok = answer(Pid, Ok),
+        {<<"new_message">>, Text} ->
+            {new_message, Text} = answer(Pid, {new_message, Text}),
             {ok, State};
         Unknown ->
             logger:alert("get unknown message - ~p disconnect...", [Unknown]),
@@ -213,6 +225,7 @@ handle_info({text, Message}, #state{state = Cl_state, pid = Pid} = State) when C
     end,
     case Cast of
         disconnect ->
+            ws_disconnect(ConnPid),
             {stop, normal, NewState#state{state = disconnected}};
         ok ->
             {noreply, NewState};
@@ -223,7 +236,7 @@ handle_info({text, Message}, #state{state = Cl_state, pid = Pid} = State) when C
 handle_info(Message, #state{state = Cl_state} = State) when Cl_state == disconnected ->
     logger:alert("get message befor we start - ~p", [Message]),
     NewState = case Message of
-    {gun_upgrade, ConnPid, ok, _Headers} ->
+    {gun_upgrade, ConnPid, _, _, _Headers} ->
         {ok, connected} = answer(State#state.pid, {ok, connected}),
         State#state{connpid = ConnPid, state = established};
     {gun_ws_upgrade, ConnPid, ok, _Headers} ->
@@ -253,4 +266,7 @@ ws_send(ConnPid, Tuple) ->
     logger:alert("send packet - ~p json - ~p", [Tuple, Json]),
     gun:ws_send(ConnPid, {text, Json}).
 
+-spec ws_disconnect(_) -> ok.
 
+ws_disconnect(ConnPid) ->
+    gun:close(ConnPid).
