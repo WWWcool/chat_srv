@@ -105,7 +105,7 @@ handle_cast({resend_message, Message, Pids}, State) ->
         fun(Pid) ->
             case is_process_alive(Pid) of
                 true ->
-                    logger:alert("Process pid - ~p", [Pid]),
+                    logger:alert("Process pid - ~p msg - ~p", [Pid, Message]),
                     Pid ! {resend_message, Message};
                 false ->
                     logger:alert("Process not live - ~p", [Pid])
@@ -167,8 +167,8 @@ handle_call({load_history, Name}, _From, #state{users = Users, rooms = Rooms} = 
     {reply, Reply, State};
 
 handle_call({send_message, Name, Message}, _From, #state{users = Users, rooms = Rooms} = State) ->
-    {Reply, Pids, NewUsers, NewRooms} = chat_server:send_message(Name, Message, Users, Rooms),
-    gen_server:cast(self(), {resend_message, Message, Pids}),
+    {Reply, FMessage, Pids, NewUsers, NewRooms} = chat_server:send_message(Name, Message, Users, Rooms),
+    gen_server:cast(self(), {resend_message, FMessage, Pids}),
     {reply, Reply, State#state{users = NewUsers, rooms = NewRooms}}.
 
 -spec handle_info(_, state()) -> {noreply, state()}.

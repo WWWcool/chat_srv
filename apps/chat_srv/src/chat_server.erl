@@ -28,9 +28,9 @@ init_users() -> #{}.
 -spec init_rooms() -> rooms().
 
 init_rooms() ->
-    LobbyName = "Lobby",
+    LobbyName = <<"Lobby">>,
     Lobby = chat_room:add(LobbyName),
-    RoomName = "Room1",
+    RoomName = <<"Room1">>,
     Room = chat_room:add(RoomName),
     #{LobbyName => Lobby, RoomName => Room}.
 
@@ -159,7 +159,7 @@ send_message(Name, Message, Users, Rooms) ->
     case maps:find(Name, Users) of
         {ok, User} ->
             RoomName = chat_user:current_room(User),
-            send_message_to_room(RoomName, Message, Users, Rooms);
+            send_message_to_room(RoomName, format_message(Name, Message), Users, Rooms);
         error ->
             {{ok, user_not_found}, [], Users, Rooms}
     end.
@@ -179,9 +179,9 @@ send_message_to_room(RoomName, Message, Users, Rooms) ->
                 fun(_, SomeUser, PidList) ->
                     [chat_user:get_pid(SomeUser) | PidList]
                 end, [], UsersInRoom),
-            {{ok, start_resend}, Pids, Users, NewRooms};
+            {{ok, start_resend}, Message, Pids, Users, NewRooms};
         error ->
-            {{ok, room_not_found}, [], Users, Rooms}
+            {{ok, room_not_found}, [], [], Users, Rooms}
     end.
 
 -spec get_monitor(iolist(), users()) -> {ok, user_not_found | reference()}.
@@ -194,7 +194,10 @@ get_monitor(Name, Users) ->
             {ok, user_not_found}
     end.
 
-
+format_message(Name, Text) ->
+    {{Year, Month, Day}, {Hour, Minute, Second}} = calendar:now_to_datetime(erlang:timestamp()),
+    StrTime = lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",[Year,Month,Day,Hour,Minute,Second])),
+    erlang:iolist_to_binary([Name, " " ,StrTime, "\n\t", Text]).
 
 
 

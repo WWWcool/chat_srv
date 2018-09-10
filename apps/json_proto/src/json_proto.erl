@@ -4,7 +4,7 @@
 -export([encode/1]).
 
 decode(Json) ->
-    jiffy:decode(Json).
+    jiffy:decode(Json, [return_maps]).
 
 encode({Type, Data}) ->
     jiffy:encode(#{type => Type, data => Data}).

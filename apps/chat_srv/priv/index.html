@@ -45,11 +45,11 @@
           };
       };
 
-      function sendToServer(type, data){
+      function sendToServer(type_, data_){
         if(websocket.readyState == websocket.OPEN){
-            txt = {type: data};
+            txt = {type: type_, data: data_};
             websocket.send(JSON.stringify(txt));
-            showScreen('sending: ' + txt);
+            //showScreen('sending: ' + txt);
         } else {
             showScreen('websocket is not connected');
         };
@@ -57,6 +57,18 @@
 
       function sendTxt() {
         sendToServer('send_message', $("#send_txt").val());
+      };
+
+      function joinRoom() {
+        sendToServer('join_room', $("#send_room").val());
+      };
+
+      function quitRoom() {
+        sendToServer('quit_room', $("#send_room").val());
+      };
+
+      function changeRoom() {
+        sendToServer('change_room', $("#send_room").val());
       };
 
       function login() {
@@ -83,7 +95,7 @@
               printError('unknown message data - ' + Result.data);
               break;
             case 'ok':
-              if(state != 'get_rooms' || state != 'load_history')
+              if(state != 'get_rooms' && state != 'load_history')
               {
                   switch(Result.data)
                   {
@@ -110,7 +122,7 @@
                         printError('room ton found');
                         break;
                       case 'start_resend':
-                        showScreen('sended');
+                        //showScreen('sended');
                         break;
                       case 'joined':
                         showScreen('join room');
@@ -119,8 +131,6 @@
                         break;
                       case 'quited':
                         showScreen('quit room');
-                        sendToServer('load_history', "dummy");
-                        state = 'load_history';
                         break;
                       case 'changed':
                         showScreen('change room');
@@ -140,7 +150,10 @@
                         break;
                       case 'load_history':
                         clearScreen();
-                        showScreen('<span style="color: blue;">' + Result.data + '</span>');
+                        Result.data.reverse();
+                        Result.data.forEach(function(element) {
+                            showScreen('<span style="color: blue;">' + element + '</span>');
+                        });
                         break;
                       default:
                           printError('unknown message state - ' + state);
@@ -193,6 +206,12 @@
       <input type='text' id="send_name" value=>name</input>
       <input type='text' id="send_pw" value=>password</input>
       <button type="button" onclick="login();">login</button>
+    </p>
+    <p>
+      <input type='text' id="send_room" value=>Room</input>
+      <button type="button" onclick="joinRoom();">join</button>
+      <button type="button" onclick="quitRoom();">quit</button>
+      <button type="button" onclick="changeRoom();">change</button>
     </p>
     <p>
 	  <input type='text' id="send_txt" value=></input>
