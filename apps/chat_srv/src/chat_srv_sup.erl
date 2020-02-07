@@ -30,8 +30,24 @@ start_link() ->
     {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 
 init([]) ->
+    ExtPort = 8080,
+    ExtTCPConnectionMax = 1,
+    logger:alert("in srv sup port - ~p and conn max - ~p~n", [ExtPort, ExtTCPConnectionMax]),
     Flags = #{strategy => one_for_all},
-    {ok, {Flags, [get_cowboy_child_spec({0, 0, 0, 0}, 8080)]}}.
+    TCPChild = #{id     => tcp_sup,
+                 start  => {tcp_sup, start_link, [{ExtPort + 1, ExtTCPConnectionMax}]},
+                 restart    => permanent,
+                 shutdown   => 2000,
+                 type   => supervisor,
+                 modules    => [tcp_sup, tcp_handler, tcp_srv]},
+    ChatChild = #{id     => chat_srv,
+                 start  => {chat_srv, start_link, []},
+                 restart    => permanent,
+                 shutdown   => 2000,
+                 type   => worker,
+                 modules    => [chat_srv, chat_server, chat_user, chat_room]},
+    CowboyChild = get_cowboy_child_spec({0, 0, 0, 0}, ExtPort),
+    {ok, {Flags, [ChatChild, CowboyChild, TCPChild]}}.
 
 -spec get_cowboy_child_spec(ip(), integer()) ->
     supervisor:child_spec().

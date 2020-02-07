@@ -4,37 +4,38 @@
     <title>Websocket client</title>
     <script src="/static/jquery.min.js"></script>
     <script type="text/javascript">
-      
+
       var websocket;
+      var state = 'undefined';
       $(document).ready(init);
-      
+
       function init() {
           $('#server').val("ws://" + window.location.host + "/websocket");
-          if(!("WebSocket" in window)){  
+          if(!("WebSocket" in window)){
               $('#status').append('<p><span style="color: red;">websockets are not supported </span></p>');
-              $("#navigation").hide();  
+              $("#navigation").hide();
           } else {
               $('#status').append('<p><span style="color: green;">websockets are supported </span></p>');
               connect();
           };
-              $("#connected").hide(); 	
-              $("#content").hide(); 	
+              $("#connected").hide();
+              $("#content").hide();
       };
 
       function connect()
       {
           wsHost = $("#server").val()
           websocket = new WebSocket(wsHost);
-          showScreen('<b>Connecting to: ' +  wsHost + '</b>'); 
-          websocket.onopen = function(evt) { onOpen(evt) }; 
-          websocket.onclose = function(evt) { onClose(evt) }; 
-          websocket.onmessage = function(evt) { onMessage(evt) }; 
-          websocket.onerror = function(evt) { onError(evt) }; 
-      };  
-      
+          showScreen('<b>Connecting to: ' +  wsHost + '</b>');
+          websocket.onopen = function(evt) { onOpen(evt) };
+          websocket.onclose = function(evt) { onClose(evt) };
+          websocket.onmessage = function(evt) { onMessage(evt) };
+          websocket.onerror = function(evt) { onError(evt) };
+      };
+
       function disconnect() {
           websocket.close();
-      }; 
+      };
 
       function toggle_connection(){
           if(websocket.readyState == websocket.OPEN){
@@ -44,40 +45,144 @@
           };
       };
 
+      function sendToServer(type_, data_){
+        if(websocket.readyState == websocket.OPEN){
+            txt = {type: type_, data: data_};
+            websocket.send(JSON.stringify(txt));
+            //showScreen('sending: ' + txt);
+        } else {
+            showScreen('websocket is not connected');
+        };
+      }
+
       function sendTxt() {
-          if(websocket.readyState == websocket.OPEN){
-              txt = $("#send_txt").val();
-              websocket.send(txt);
-              showScreen('sending: ' + txt); 
-          } else {
-               showScreen('websocket is not connected'); 
-          };
+        sendToServer('send_message', $("#send_txt").val());
       };
 
-      function onOpen(evt) { 
-          showScreen('<span style="color: green;">CONNECTED </span>'); 
+      function joinRoom() {
+        sendToServer('join_room', $("#send_room").val());
+      };
+
+      function quitRoom() {
+        sendToServer('quit_room', $("#send_room").val());
+      };
+
+      function changeRoom() {
+        sendToServer('change_room', $("#send_room").val());
+      };
+
+      function login() {
+        sendToServer('enter_name', $("#send_name").val());
+      };
+
+      function onOpen(evt) {
+          showScreen('<span style="color: green;">CONNECTED </span>');
           $("#connected").fadeIn('slow');
           $("#content").fadeIn('slow');
-      };  
+      };
 
-      function onClose(evt) { 
+      function onClose(evt) {
           showScreen('<span style="color: red;">DISCONNECTED </span>');
-      };  
+      };
 
-      function onMessage(evt) { 
-          showScreen('<span style="color: blue;">RESPONSE: ' + evt.data+ '</span>'); 
-      };  
+      function onMessage(evt)
+      {
+        Result = JSON.parse(evt.data);
+        text = Result.type;
+        switch (Result.type)
+        {
+            case 'error':
+              printError('unknown message data - ' + Result.data);
+              break;
+            case 'ok':
+              if(state != 'get_rooms' && state != 'load_history')
+              {
+                  switch(Result.data)
+                  {
+                      case 'disconnect':
+                        showScreen('disconnect');
+                        break;
+                      case 'login':
+                      case 'user_not_found':
+                        sendToServer('enter_new_password', $("#send_pw").val());
+                        break;
+                      case 'found':
+                        sendToServer('enter_old_password', $("#send_pw").val());
+                        break;
+                      case 'added_and_logged':
+                      case 'logged':
+                        sendToServer('get_rooms', "dummy");
+                        showScreen('logged to server');
+                        state = 'get_rooms';
+                        break;
+                      case 'bad_password':
+                        printError('bad password');
+                        break;
+                      case 'room_not_found':
+                        printError('room ton found');
+                        break;
+                      case 'start_resend':
+                        //showScreen('sended');
+                        break;
+                      case 'joined':
+                        showScreen('join room');
+                        sendToServer('load_history', "dummy");
+                        state = 'load_history';
+                        break;
+                      case 'quited':
+                        showScreen('quit room');
+                        break;
+                      case 'changed':
+                        showScreen('change room');
+                        sendToServer('load_history', "dummy");
+                        state = 'load_history';
+                        break;
+                      default:
+                        printError('unknown message data - ' + Result.data);
+                  }
+              }
+              else
+              {
+                  switch(state)
+                  {
+                      case 'get_rooms':
+                        showScreen('rooms - ' + Result.data);
+                        break;
+                      case 'load_history':
+                        clearScreen();
+                        Result.data.reverse();
+                        Result.data.forEach(function(element) {
+                            showScreen('<span style="color: blue;">' + element + '</span>');
+                        });
+                        break;
+                      default:
+                          printError('unknown message state - ' + state);
+                  }
+                  state = 'undefined';
+              }
+              break;
+            case 'new_message':
+                showScreen('<span style="color: blue;">' + Result.data + '</span>');
+              break;
+            default :
+                printError('unknown message type - ' + Result.type);
+        }
+      };
+
+      function printError(error){
+        showScreen('<span style="color: red;">' + error + '</span>');
+      }
 
       function onError(evt) {
           showScreen('<span style="color: red;">ERROR: ' + evt.data+ '</span>');
       };
 
-      function showScreen(txt) { 
+      function showScreen(txt) {
           $('#output').prepend('<p>' + txt + '</p>');
       };
 
-      function clearScreen() 
-      { 
+      function clearScreen()
+      {
           $('#output').html("");
       };
     </script>
@@ -96,18 +201,27 @@
 	<input type='text' id="server" value=""></input>
 	<button type="button" onclick="toggle_connection()">connection</button>
       </p>
-      <div id="connected">				
+      <div id="connected">
 	<p>
+      <input type='text' id="send_name" value=>name</input>
+      <input type='text' id="send_pw" value=>password</input>
+      <button type="button" onclick="login();">login</button>
+    </p>
+    <p>
+      <input type='text' id="send_room" value=>Room</input>
+      <button type="button" onclick="joinRoom();">join</button>
+      <button type="button" onclick="quitRoom();">quit</button>
+      <button type="button" onclick="changeRoom();">change</button>
+    </p>
+    <p>
 	  <input type='text' id="send_txt" value=></input>
 	  <button type="button" onclick="sendTxt();">send</button>
 	</p>
       </div>
-
-      <div id="content">						
+      <div id="content">
 	<button id="clear" onclick="clearScreen()" >Clear text</button>
 	<div id="output"></div>
       </div>
-
     </div>
   </body>
-</html> 
+</html>
